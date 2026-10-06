@@ -1,0 +1,6 @@
+{
+  "name": "Daily Cashflow - Keuangan Keluarga",
+  "description": "Aplikasi pencatatan arus kas harian dan perencanaan anggaran keuangan keluarga modern.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
