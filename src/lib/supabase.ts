@@ -36,15 +36,6 @@ export function getSupabaseConfig(): SupabaseConfig | null {
     console.error('Error reading saved supabase config:', err);
   }
 
-  // 3. Cek Demo mode
-  if (isDemoModeActive()) {
-    return {
-      url: 'https://demo-local-cashflow.internal',
-      anonKey: 'demo-anon-key',
-      source: 'demo',
-    };
-  }
-
   return null;
 }
 
@@ -62,23 +53,13 @@ export function clearSupabaseConfig(): void {
   cachedConfigKey = null;
 }
 
-export function setDemoMode(active: boolean): void {
-  if (active) {
-    localStorage.setItem(DEMO_MODE_KEY, 'true');
-  } else {
-    localStorage.removeItem(DEMO_MODE_KEY);
-  }
-  cachedClient = null;
-  cachedConfigKey = null;
-}
-
 export function isDemoModeActive(): boolean {
-  return localStorage.getItem(DEMO_MODE_KEY) === 'true';
+  return false;
 }
 
 export function getSupabaseClient(): SupabaseClient | null {
   const config = getSupabaseConfig();
-  if (!config || config.source === 'demo') {
+  if (!config) {
     return null;
   }
 

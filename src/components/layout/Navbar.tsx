@@ -36,7 +36,7 @@ export function Navbar({ activeTab, setActiveTab, onOpenIntegrationTab }: Navbar
   const [savingPass, setSavingPass] = useState(false);
 
   const supabaseConfig = getSupabaseConfig();
-  const isConnectedToSupabase = supabaseConfig && supabaseConfig.source !== 'demo';
+  const isConnectedToSupabase = !!supabaseConfig;
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -164,7 +164,7 @@ export function Navbar({ activeTab, setActiveTab, onOpenIntegrationTab }: Navbar
                   }`}
                 />
                 <span className="text-[11px] truncate">
-                  {isConnectedToSupabase ? 'Supabase Terhubung' : 'Mode Demo Offline'}
+                  {isConnectedToSupabase ? 'Supabase Terhubung' : 'Belum Terhubung DB'}
                 </span>
               </div>
               <ChevronRight className="w-3.5 h-3.5 opacity-60 shrink-0" />

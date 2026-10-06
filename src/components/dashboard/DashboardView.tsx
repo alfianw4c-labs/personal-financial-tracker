@@ -49,9 +49,9 @@ export function DashboardView({ onNavigateToTransactions, onNavigateToPlanning }
     getMonthlyLimitStatusList,
   } = useData();
 
-  // Filter bulan & tahun dashboard (default: Oktober 2026 atau bulan lokal)
-  const [selectedYear, setSelectedYear] = useState<number>(2026);
-  const [selectedMonth, setSelectedMonth] = useState<number>(10);
+  // Filter bulan & tahun dashboard (default: bulan & tahun saat ini)
+  const [selectedYear, setSelectedYear] = useState<number>(() => new Date().getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState<number>(() => new Date().getMonth() + 1);
 
   // Modal Flag Limit Detail
   const [showFlagModal, setShowFlagModal] = useState<boolean>(false);
@@ -811,52 +811,58 @@ export function DashboardView({ onNavigateToTransactions, onNavigateToPlanning }
         </div>
 
         <div className="divide-y divide-slate-100">
-          {recentTransactions.map((tx) => {
-            const isIncome = tx.type_kind === 'income';
-            const isExpense = tx.type_kind === 'expense';
+          {recentTransactions.length === 0 ? (
+            <div className="py-8 text-center text-slate-400 text-xs">
+              Belum ada mutasi transaksi yang tercatat.
+            </div>
+          ) : (
+            recentTransactions.map((tx) => {
+              const isIncome = tx.type_kind === 'income';
+              const isExpense = tx.type_kind === 'expense';
 
-            return (
-              <div key={tx.id} className="py-3 flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
+              return (
+                <div key={tx.id} className="py-3 flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 ${
+                        isIncome
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : isExpense
+                          ? 'bg-rose-100 text-rose-800'
+                          : 'bg-blue-100 text-blue-800'
+                      }`}
+                    >
+                      {isIncome ? '+' : isExpense ? '-' : '⇄'}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-slate-900">
+                          {tx.sub_category_name || tx.category_name || tx.type_name}
+                        </span>
+                        <span className="text-[11px] text-slate-400">·</span>
+                        <span className="text-[11px] text-slate-500 font-mono">
+                          {formatDateID(tx.tx_date)}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 truncate max-w-xs sm:max-w-md">
+                        {tx.source_name} → {tx.destination_name}
+                        {tx.description ? ` (${tx.description})` : ''}
+                      </p>
+                    </div>
+                  </div>
+
                   <div
-                    className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 ${
-                      isIncome
-                        ? 'bg-emerald-100 text-emerald-800'
-                        : isExpense
-                        ? 'bg-rose-100 text-rose-800'
-                        : 'bg-blue-100 text-blue-800'
+                    className={`text-xs font-bold tabular-nums whitespace-nowrap ${
+                      isIncome ? 'text-emerald-700' : isExpense ? 'text-rose-700' : 'text-blue-700'
                     }`}
                   >
-                    {isIncome ? '+' : isExpense ? '-' : '⇄'}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-slate-900">
-                        {tx.sub_category_name || tx.category_name || tx.type_name}
-                      </span>
-                      <span className="text-[11px] text-slate-400">·</span>
-                      <span className="text-[11px] text-slate-500 font-mono">
-                        {formatDateID(tx.tx_date)}
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-slate-500 truncate max-w-xs sm:max-w-md">
-                      {tx.source_name} → {tx.destination_name}
-                      {tx.description ? ` (${tx.description})` : ''}
-                    </p>
+                    {isIncome ? '+' : isExpense ? '-' : ''}
+                    {formatRupiah(tx.amount, privacyMode)}
                   </div>
                 </div>
-
-                <div
-                  className={`text-xs font-bold tabular-nums whitespace-nowrap ${
-                    isIncome ? 'text-emerald-700' : isExpense ? 'text-rose-700' : 'text-blue-700'
-                  }`}
-                >
-                  {isIncome ? '+' : isExpense ? '-' : ''}
-                  {formatRupiah(tx.amount, privacyMode)}
-                </div>
-              </div>
-            );
-          })}
+              );
+            })
+          )}
         </div>
       </div>
 

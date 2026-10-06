@@ -139,7 +139,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setSettings(getStored('settings', INITIAL_SETTINGS));
       setQuarterlyPlans(getStored('quarterly_plans', INITIAL_PLANS));
       setQuarterlyPlanItems(getStored('quarterly_plan_items', INITIAL_PLAN_ITEMS));
-      setTransactions(getStored('transactions', INITIAL_TRANSACTIONS));
+      const storedTxs = getStored('transactions', []);
+      const cleanTxs = Array.isArray(storedTxs)
+        ? storedTxs.filter((t: any) => !t.id?.startsWith('tx-0'))
+        : [];
+      setTransactions(cleanTxs);
       setAppUsers(getStored('demo_users', INITIAL_USERS));
     } catch (e) {
       console.error('Error loading fallback data:', e);

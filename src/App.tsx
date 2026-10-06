@@ -9,7 +9,7 @@ import { DashboardView } from './components/dashboard/DashboardView';
 import { TransactionListView } from './components/transactions/TransactionListView';
 import { PlanningView } from './components/planning/PlanningView';
 import { MasterDataView } from './components/master/MasterDataView';
-import { getSupabaseConfig, isDemoModeActive } from './lib/supabase';
+import { getSupabaseConfig } from './lib/supabase';
 
 function MainApp() {
   const { currentUser, loading: authLoading } = useAuth();
@@ -22,10 +22,9 @@ function MainApp() {
   // Cek apakah konfigurasi Supabase sudah ada
   useEffect(() => {
     const config = getSupabaseConfig();
-    const isDemo = isDemoModeActive();
 
     // Jika belum ada konfigurasi sama sekali pada first run, buka setup wizard
-    if (!config && !isDemo && !currentUser) {
+    if (!config && !currentUser) {
       setShowSetupWizard(true);
     }
   }, [currentUser]);

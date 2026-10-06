@@ -20,6 +20,7 @@ import {
   RotateCcw,
   Wallet,
   SlidersHorizontal,
+  ReceiptText,
 } from 'lucide-react';
 import { useData } from '../../context/DataContext';
 import { useToast } from '../layout/NotificationToast';
@@ -1452,8 +1453,27 @@ export function TransactionListView() {
                 })
               ) : (
                 <tr>
-                  <td colSpan={8} className="py-8 text-center text-xs text-slate-400">
-                    Tidak ada transaksi yang cocok dengan filter.
+                  <td colSpan={8} className="py-12 text-center text-xs text-slate-400">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <ReceiptText className="w-8 h-8 text-slate-300" />
+                      <p className="font-medium text-slate-600">
+                        {transactions.length === 0
+                          ? 'Belum ada data transaksi tercatat di database.'
+                          : 'Tidak ada transaksi yang cocok dengan filter pencarian.'}
+                      </p>
+                      {transactions.length === 0 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            resetForm();
+                            setFormModalOpen(true);
+                          }}
+                          className="mt-1 px-3.5 py-1.5 text-xs font-semibold rounded-xl bg-[#1E6B4F] text-white hover:bg-[#16523c] transition-colors"
+                        >
+                          + Catat Transaksi Baru
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               )}

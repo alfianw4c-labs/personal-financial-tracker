@@ -131,5 +131,5 @@ export interface AppSettings {
 export interface SupabaseConfig {
   url: string;
   anonKey: string;
-  source: 'env' | 'local' | 'demo';
+  source: 'env' | 'local';
 }

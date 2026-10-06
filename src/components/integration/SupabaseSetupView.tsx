@@ -22,7 +22,6 @@ import {
   clearSupabaseConfig,
   testSupabaseConnection,
   getSupabaseClient,
-  setDemoMode,
 } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
@@ -227,15 +226,8 @@ export function SupabaseSetupView({ onBackToApp }: SupabaseSetupViewProps) {
       setConnectionStatus({ tested: false, success: false, message: '' });
       setCurrentStep(1);
       refetchAll();
-      showToast('info', 'Koneksi Diputuskan', 'Aplikasi kembali ke mode demo/awal.');
+      showToast('info', 'Koneksi Diputuskan', 'Konfigurasi database telah dihapus dari browser.');
     }
-  };
-
-  const handleActivateDemoMode = () => {
-    setDemoMode(true);
-    refetchAll();
-    showToast('success', 'Mode Demo Aktif', 'Data simulasi offline siap dijelajahi.');
-    if (onBackToApp) onBackToApp();
   };
 
   return (
@@ -249,7 +241,7 @@ export function SupabaseSetupView({ onBackToApp }: SupabaseSetupViewProps) {
           <div>
             <h1 className="text-xl font-bold text-slate-900">Integrasi Database Supabase</h1>
             <p className="text-xs text-slate-500">
-              Konfigurasi PostgreSQL cloud, eksekusi migrasi skema, dan manajemen akun.
+              Konfigurasi PostgreSQL cloud, eksekusi migrasi skema, dan manajemen akun keluarga.
             </p>
           </div>
         </div>
@@ -264,13 +256,6 @@ export function SupabaseSetupView({ onBackToApp }: SupabaseSetupViewProps) {
               <span>Kembali</span>
             </button>
           )}
-
-          <button
-            onClick={handleActivateDemoMode}
-            className="px-3.5 py-2 text-xs font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 rounded-xl transition-colors"
-          >
-            Gunakan Demo Mode
-          </button>
         </div>
       </div>
 
