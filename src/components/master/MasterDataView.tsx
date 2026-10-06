@@ -296,10 +296,10 @@ export function MasterDataView({ initialTab }: MasterDataViewProps = {}) {
         is_active: accActive,
       });
       if (res.success) {
-        showToast('success', 'Akun Keuangan Berhasil Disimpan');
+        showToast('success', 'Rekening Berhasil Disimpan');
         setModalOpen(false);
       } else {
-        showToast('error', 'Gagal menyimpan akun', res.error);
+        showToast('error', 'Gagal menyimpan rekening', res.error);
       }
     } else if (activeTab === 'parties') {
       const res = await saveFlowParty({
@@ -397,58 +397,97 @@ export function MasterDataView({ initialTab }: MasterDataViewProps = {}) {
     }
   };
 
+  // Definisi menu tab pengaturan (Sidebar di Desktop, Tab bar di Mobile)
+  const tabItems = [
+    {
+      id: 'accounts',
+      label: 'Rekening',
+      icon: Building,
+      count: accounts.length,
+      description: 'Daftar rekening bank, dompet kas, tabungan, dan paylater keluarga',
+    },
+    {
+      id: 'sub_categories',
+      label: 'Sub Kategori & Limit',
+      icon: ListTree,
+      count: subCategories.length,
+      description: 'Sub kategori pengeluaran/pemasukan dan limit anggaran bulanan default',
+    },
+    {
+      id: 'categories',
+      label: 'Kategori',
+      icon: Tag,
+      count: categories.length,
+      description: 'Kategori induk transaksi yang mengelompokkan sub kategori',
+    },
+    {
+      id: 'types',
+      label: 'Tipe Transaksi',
+      icon: Layers,
+      count: transactionTypes.length,
+      description: 'Klasifikasi arus kas: Income (Pemasukan), Expense (Pengeluaran), dan Transfer',
+    },
+    {
+      id: 'parties',
+      label: 'Pihak Sumber / Tujuan',
+      icon: Users,
+      count: flowParties.length,
+      description: 'Pihak luar sumber pemasukan atau tujuan pembayaran',
+    },
+    {
+      id: 'settings',
+      label: 'Pengaturan Umum',
+      icon: Settings,
+      description: 'Konfigurasi rekening dana darurat dan basis runway bulan',
+    },
+    ...(isSuperAdmin
+      ? [
+          {
+            id: 'users',
+            label: 'Kelola Pengguna',
+            icon: ShieldCheck,
+            count: appUsers.length,
+            description: 'Manajemen akun pengguna login dan hak akses keluarga',
+          },
+          {
+            id: 'integrasi',
+            label: 'Integrasi Database',
+            icon: Database,
+            description: 'Koneksi Supabase & panduan eksekusi migrasi skema tabel',
+          },
+        ]
+      : []),
+  ];
+
+  const currentTabInfo = tabItems.find((t) => t.id === activeTab) || tabItems[0];
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
       {/* HEADER */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold text-slate-900 tracking-tight">
-            Pengaturan Master Data & Akun
+            Pengaturan Master Data & Rekening
           </h1>
           <p className="text-xs text-slate-500">
             {isSuperAdmin
-              ? 'Kelola daftar akun perbankan, kategori, limit default, pihak aliran kas, dan pengguna.'
+              ? 'Kelola daftar rekening keuangan, kategori, limit default bulanan, pihak aliran kas, dan pengguna.'
               : 'Melihat konfigurasi master data (Akses edit dibatasi hanya untuk Superadmin).'}
           </p>
         </div>
-
-        {isSuperAdmin && activeTab !== 'settings' && activeTab !== 'integrasi' && (
-          <button
-            onClick={handleOpenAdd}
-            className="px-4 py-2 bg-[#1E6B4F] hover:bg-[#16523c] text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-xs transition-colors shrink-0"
-          >
-            <Plus className="w-4 h-4" />
-            <span>
-              {activeTab === 'users' ? 'Tambah User Baru' : 'Tambah Data Baru'}
-            </span>
-          </button>
-        )}
       </div>
 
-      {/* TABS NAVIGATION */}
-      <div className="flex overflow-x-auto gap-1 p-1 bg-slate-100 rounded-xl max-w-full">
-        {[
-          { id: 'accounts', label: 'Akun & Saldo', icon: Building },
-          { id: 'sub_categories', label: 'Sub Kategori & Limit', icon: ListTree },
-          { id: 'categories', label: 'Kategori', icon: Tag },
-          { id: 'types', label: 'Tipe Transaksi', icon: Layers },
-          { id: 'parties', label: 'Pihak Sumber/Tujuan', icon: Users },
-          { id: 'settings', label: 'Pengaturan Umum', icon: Settings },
-          ...(isSuperAdmin
-            ? [
-                { id: 'users', label: 'Kelola Pengguna', icon: ShieldCheck },
-                { id: 'integrasi', label: 'Integrasi Database', icon: Database },
-              ]
-            : []),
-        ].map((tab) => {
+      {/* MOBILE TABS NAVIGATION (Hanya tampil di mobile < md) */}
+      <div className="md:hidden flex overflow-x-auto gap-1 p-1 bg-slate-100 rounded-xl max-w-full">
+        {tabItems.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
           return (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
-              className={`px-3.5 py-2 rounded-lg text-xs font-semibold whitespace-nowrap flex items-center gap-1.5 transition-all ${
-                isActive ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap flex items-center gap-1.5 transition-all ${
+                isActive ? 'bg-white text-slate-900 shadow-xs font-bold' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <Icon className="w-3.5 h-3.5" />
@@ -458,33 +497,107 @@ export function MasterDataView({ initialTab }: MasterDataViewProps = {}) {
         })}
       </div>
 
-      {/* READ-ONLY BANNER FOR REGULAR USERS */}
-      {!isSuperAdmin && (
-        <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 flex items-center gap-2">
-          <Lock className="w-4 h-4 shrink-0 text-amber-600" />
-          <span>
-            Anda masuk sebagai <strong>User Keluarga</strong>. Hak akses Anda adalah melihat data. Penambahan dan pengubahan master data dikelola oleh Superadmin.
-          </span>
-        </div>
-      )}
+      {/* TWO-COLUMN LAYOUT: SIDEBAR (DESKTOP) + CONTENT */}
+      <div className="flex flex-col md:flex-row items-start gap-6">
+        {/* SETTINGS SIDEBAR (Desktop md:w-64 lg:w-72) */}
+        <aside className="hidden md:block w-64 lg:w-72 shrink-0 bg-white rounded-2xl border border-slate-200 shadow-2xs p-3">
+          <div className="px-3 py-2 border-b border-slate-100 mb-2">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+              Menu Pengaturan
+            </span>
+          </div>
 
-      {/* TAB 1: ACCOUNTS */}
-      {activeTab === 'accounts' && (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold">
-                  <th className="py-3 px-4">Nama Akun</th>
-                  <th className="py-3 px-4">Grup</th>
-                  <th className="py-3 px-4">Pemilik</th>
-                  <th className="py-3 px-4">Catatan / Tujuan</th>
-                  <th className="py-3 px-4 text-right">Saldo Awal</th>
-                  <th className="py-3 px-4 text-right">Saldo Saat Ini</th>
-                  <th className="py-3 px-4 text-center">Status</th>
-                  {isSuperAdmin && <th className="py-3 px-4 text-center">Aksi</th>}
-                </tr>
-              </thead>
+          <nav className="space-y-1">
+            {tabItems.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as any)}
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all text-left ${
+                    isActive
+                      ? 'bg-[#1E6B4F]/10 text-[#1E6B4F] font-bold border border-[#1E6B4F]/20 shadow-2xs'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 border border-transparent'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-[#1E6B4F]' : 'text-slate-500'}`} />
+                    <span className="truncate">{tab.label}</span>
+                  </div>
+                  {tab.count !== undefined && (
+                    <span
+                      className={`text-[10px] px-2 py-0.5 rounded-full font-mono ${
+                        isActive ? 'bg-[#1E6B4F]/20 text-[#1E6B4F]' : 'bg-slate-100 text-slate-500'
+                      }`}
+                    >
+                      {tab.count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </nav>
+        </aside>
+
+        {/* SETTINGS CONTENT (Right Column) */}
+        <div className="flex-1 min-w-0 w-full space-y-4">
+          {/* ACTIVE TAB INFO HEADER CARD */}
+          <div className="bg-white rounded-2xl border border-slate-200 px-5 py-4 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-bold text-slate-900 tracking-tight flex items-center gap-2">
+                {currentTabInfo && <currentTabInfo.icon className="w-4 h-4 text-[#1E6B4F]" />}
+                {currentTabInfo?.label}
+              </h2>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                {currentTabInfo?.description}
+              </p>
+            </div>
+
+            {isSuperAdmin && activeTab !== 'settings' && activeTab !== 'integrasi' && (
+              <button
+                onClick={handleOpenAdd}
+                className="px-4 py-2 bg-[#1E6B4F] hover:bg-[#16523c] text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-xs transition-colors shrink-0 self-start sm:self-auto"
+              >
+                <Plus className="w-4 h-4" />
+                <span>
+                  {activeTab === 'accounts'
+                    ? 'Tambah Rekening'
+                    : activeTab === 'users'
+                    ? 'Tambah User Baru'
+                    : 'Tambah Data Baru'}
+                </span>
+              </button>
+            )}
+          </div>
+
+          {/* READ-ONLY BANNER FOR REGULAR USERS */}
+          {!isSuperAdmin && (
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 flex items-center gap-2">
+              <Lock className="w-4 h-4 shrink-0 text-amber-600" />
+              <span>
+                Anda masuk sebagai <strong>User Keluarga</strong>. Hak akses Anda adalah melihat data. Penambahan dan pengubahan master data dikelola oleh Superadmin.
+              </span>
+            </div>
+          )}
+
+          {/* TAB 1: ACCOUNTS / REKENING */}
+          {activeTab === 'accounts' && (
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold">
+                      <th className="py-3 px-4">Nama Rekening</th>
+                      <th className="py-3 px-4">Grup Rekening</th>
+                      <th className="py-3 px-4">Pemilik</th>
+                      <th className="py-3 px-4">Catatan / Peruntukan</th>
+                      <th className="py-3 px-4 text-right">Saldo Awal</th>
+                      <th className="py-3 px-4 text-right">Saldo Saat Ini</th>
+                      <th className="py-3 px-4 text-center">Status</th>
+                      {isSuperAdmin && <th className="py-3 px-4 text-center">Aksi</th>}
+                    </tr>
+                  </thead>
               <tbody className="divide-y divide-slate-100">
                 {accounts.map((acc) => (
                   <tr key={acc.id} className="hover:bg-slate-50/70">
@@ -959,6 +1072,8 @@ export function MasterDataView({ initialTab }: MasterDataViewProps = {}) {
           <SupabaseSetupView onBackToApp={() => setActiveTab('accounts')} />
         </div>
       )}
+        </div>
+      </div>
 
       {/* GENERIC MASTER MODAL */}
       {modalOpen && (
@@ -966,7 +1081,13 @@ export function MasterDataView({ initialTab }: MasterDataViewProps = {}) {
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-100 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-4 border-b border-slate-100">
               <h3 className="font-bold text-slate-900 text-base">
-                {editingId ? 'Edit Data Master' : 'Tambah Data Master'}
+                {editingId
+                  ? activeTab === 'accounts'
+                    ? 'Edit Rekening'
+                    : 'Edit Data Master'
+                  : activeTab === 'accounts'
+                  ? 'Tambah Rekening Baru'
+                  : 'Tambah Data Master'}
               </h3>
               <button
                 onClick={() => setModalOpen(false)}
@@ -1110,26 +1231,26 @@ export function MasterDataView({ initialTab }: MasterDataViewProps = {}) {
                 </>
               )}
 
-              {/* Form Akun */}
+              {/* Form Rekening */}
               {activeTab === 'accounts' && (
                 <>
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Nama Akun / Rekening
+                      Nama Rekening
                     </label>
                     <input
                       type="text"
                       required
                       value={accName}
                       onChange={(e) => setAccName(e.target.value)}
-                      placeholder="Contoh: Seabank Ofi, Cash Dapur..."
+                      placeholder="Contoh: Seabank Ofi, Kas Dapur, BCA Alfian..."
                       className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1E6B4F]"
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="block text-xs font-semibold text-slate-700 mb-1">
-                        Grup Akun
+                        Grup Rekening
                       </label>
                       <select
                         value={accGroup}
@@ -1144,7 +1265,7 @@ export function MasterDataView({ initialTab }: MasterDataViewProps = {}) {
                     </div>
                     <div>
                       <label className="block text-xs font-semibold text-slate-700 mb-1">
-                        Label Pemilik
+                        Label Pemilik Rekening
                       </label>
                       <input
                         type="text"
