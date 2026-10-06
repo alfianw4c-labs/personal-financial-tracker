@@ -9,7 +9,6 @@ import { DashboardView } from './components/dashboard/DashboardView';
 import { TransactionListView } from './components/transactions/TransactionListView';
 import { PlanningView } from './components/planning/PlanningView';
 import { MasterDataView } from './components/master/MasterDataView';
-import { getSupabaseConfig } from './lib/supabase';
 
 function MainApp() {
   const { currentUser, loading: authLoading } = useAuth();
@@ -17,17 +16,17 @@ function MainApp() {
 
   const [activeTab, setActiveTab] = useState<'dashboard' | 'transaksi' | 'perencanaan' | 'pengaturan'>('dashboard');
   const [pengaturanSubTab, setPengaturanSubTab] = useState<any>('accounts');
-  const [showSetupWizard, setShowSetupWizard] = useState<boolean>(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
+    return localStorage.getItem('daily_cashflow_sidebar_collapsed') === 'true';
+  });
 
-  // Cek apakah konfigurasi Supabase sudah ada
-  useEffect(() => {
-    const config = getSupabaseConfig();
-
-    // Jika belum ada konfigurasi sama sekali pada first run, buka setup wizard
-    if (!config && !currentUser) {
-      setShowSetupWizard(true);
-    }
-  }, [currentUser]);
+  const handleToggleSidebar = () => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem('daily_cashflow_sidebar_collapsed', String(next));
+      return next;
+    });
+  };
 
   if (authLoading) {
     return (
@@ -40,14 +39,9 @@ function MainApp() {
     );
   }
 
-  // Jika dipaksa setup wizard atau belum ada konfigurasi sama sekali
-  if (showSetupWizard && !currentUser) {
-    return <SupabaseSetupView onBackToApp={() => setShowSetupWizard(false)} />;
-  }
-
-  // Jika belum login, tampilkan LoginView
+  // Jika tidak sedang terlogin ke sebuah akun yang terdaftar, selalu arahkan ke LoginView
   if (!currentUser) {
-    return <LoginView onOpenSetup={() => setShowSetupWizard(true)} />;
+    return <LoginView />;
   }
 
   const handleOpenIntegrationFromNavbar = () => {
@@ -67,11 +61,17 @@ function MainApp() {
           }
         }}
         onOpenIntegrationTab={handleOpenIntegrationFromNavbar}
+        collapsed={sidebarCollapsed}
+        onToggleCollapse={handleToggleSidebar}
       />
 
-      {/* Main Content Area - with left padding on desktop to clear sidebar */}
-      <div className="flex-1 md:pl-64 min-w-0 flex flex-col min-h-screen pb-20 md:pb-8">
-        <main className="flex-1">
+      {/* Main Content Area - with left padding on desktop adapting to sidebar state */}
+      <div
+        className={`flex-1 ${
+          sidebarCollapsed ? 'md:pl-20' : 'md:pl-64'
+        } min-w-0 flex flex-col min-h-screen pb-20 md:pb-6 transition-[padding] duration-200`}
+      >
+        <main className="flex-1 w-full">
           {dataLoading ? (
             <div className="py-24 flex flex-col items-center justify-center gap-3">
               <div className="w-8 h-8 border-3 border-[#1E6B4F] border-t-transparent rounded-full animate-spin" />

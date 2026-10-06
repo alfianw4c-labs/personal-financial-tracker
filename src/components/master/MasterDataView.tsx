@@ -18,6 +18,8 @@ import {
   UserX,
   Lock,
   Database,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from 'lucide-react';
 import { SupabaseSetupView } from '../integration/SupabaseSetupView';
 import { useAuth } from '../../context/AuthContext';
@@ -76,6 +78,18 @@ export function MasterDataView({ initialTab }: MasterDataViewProps = {}) {
   const [activeTab, setActiveTab] = useState<
     'accounts' | 'sub_categories' | 'categories' | 'types' | 'parties' | 'users' | 'settings' | 'integrasi'
   >(initialTab || 'accounts');
+
+  const [settingsSidebarCollapsed, setSettingsSidebarCollapsed] = useState<boolean>(() => {
+    return localStorage.getItem('daily_cashflow_settings_sidebar_collapsed') === 'true';
+  });
+
+  const handleToggleSettingsSidebar = () => {
+    setSettingsSidebarCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem('daily_cashflow_settings_sidebar_collapsed', String(next));
+      return next;
+    });
+  };
 
   // Generic modal state
   const [modalOpen, setModalOpen] = useState(false);
@@ -462,7 +476,7 @@ export function MasterDataView({ initialTab }: MasterDataViewProps = {}) {
   const currentTabInfo = tabItems.find((t) => t.id === activeTab) || tabItems[0];
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+    <div className="w-full max-w-[1680px] mx-auto px-2.5 sm:px-4 lg:px-6 py-4 space-y-4">
       {/* HEADER */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -498,13 +512,35 @@ export function MasterDataView({ initialTab }: MasterDataViewProps = {}) {
       </div>
 
       {/* TWO-COLUMN LAYOUT: SIDEBAR (DESKTOP) + CONTENT */}
-      <div className="flex flex-col md:flex-row items-start gap-6">
-        {/* SETTINGS SIDEBAR (Desktop md:w-64 lg:w-72) */}
-        <aside className="hidden md:block w-64 lg:w-72 shrink-0 bg-white rounded-2xl border border-slate-200 shadow-2xs p-3">
-          <div className="px-3 py-2 border-b border-slate-100 mb-2">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-              Menu Pengaturan
-            </span>
+      <div className="flex flex-col md:flex-row items-start gap-4 sm:gap-5">
+        {/* SETTINGS SIDEBAR (Desktop: Collapsible Icon-Only or Full) */}
+        <aside
+          className={`hidden md:block ${
+            settingsSidebarCollapsed ? 'w-16 p-2' : 'w-60 lg:w-64 p-3'
+          } shrink-0 bg-white rounded-2xl border border-slate-200 shadow-2xs transition-[width] duration-200 select-none`}
+        >
+          <div
+            className={`pb-2 border-b border-slate-100 mb-2 flex items-center ${
+              settingsSidebarCollapsed ? 'justify-center' : 'justify-between px-2'
+            }`}
+          >
+            {!settingsSidebarCollapsed && (
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                Menu Pengaturan
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={handleToggleSettingsSidebar}
+              title={settingsSidebarCollapsed ? 'Perluas Menu Pengaturan' : 'Ciutkan Menu (Hanya Icon)'}
+              className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+            >
+              {settingsSidebarCollapsed ? (
+                <PanelLeftOpen className="w-4 h-4 text-[#1E6B4F]" />
+              ) : (
+                <PanelLeftClose className="w-4 h-4" />
+              )}
+            </button>
           </div>
 
           <nav className="space-y-1">
@@ -515,24 +551,33 @@ export function MasterDataView({ initialTab }: MasterDataViewProps = {}) {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as any)}
-                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all text-left ${
+                  title={settingsSidebarCollapsed ? `${tab.label}${tab.count !== undefined ? ` (${tab.count})` : ''}` : undefined}
+                  className={`relative w-full flex items-center ${
+                    settingsSidebarCollapsed
+                      ? 'justify-center p-2.5 rounded-xl'
+                      : 'justify-between px-3 py-2 rounded-xl text-xs font-semibold'
+                  } transition-all text-left ${
                     isActive
                       ? 'bg-[#1E6B4F]/10 text-[#1E6B4F] font-bold border border-[#1E6B4F]/20 shadow-2xs'
                       : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 border border-transparent'
                   }`}
                 >
-                  <div className="flex items-center gap-2.5 min-w-0">
+                  <div className={`flex items-center ${settingsSidebarCollapsed ? 'justify-center' : 'gap-2.5 min-w-0'}`}>
                     <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-[#1E6B4F]' : 'text-slate-500'}`} />
-                    <span className="truncate">{tab.label}</span>
+                    {!settingsSidebarCollapsed && <span className="truncate">{tab.label}</span>}
                   </div>
                   {tab.count !== undefined && (
-                    <span
-                      className={`text-[10px] px-2 py-0.5 rounded-full font-mono ${
-                        isActive ? 'bg-[#1E6B4F]/20 text-[#1E6B4F]' : 'bg-slate-100 text-slate-500'
-                      }`}
-                    >
-                      {tab.count}
-                    </span>
+                    settingsSidebarCollapsed ? (
+                      <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-[#1E6B4F]" />
+                    ) : (
+                      <span
+                        className={`text-[10px] px-2 py-0.5 rounded-full font-mono ${
+                          isActive ? 'bg-[#1E6B4F]/20 text-[#1E6B4F]' : 'bg-slate-100 text-slate-500'
+                        }`}
+                      >
+                        {tab.count}
+                      </span>
+                    )
                   )}
                 </button>
               );

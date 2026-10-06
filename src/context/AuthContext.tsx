@@ -30,19 +30,53 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(AUTH_STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (parsed?.id && parsed?.role) {
-          setCurrentUser(parsed);
+    const validateSession = async () => {
+      try {
+        const stored = localStorage.getItem(AUTH_STORAGE_KEY);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed?.id && parsed?.role) {
+            const client = getSupabaseClient();
+            if (client) {
+              const { data: dbUser, error } = await client
+                .from('app_users')
+                .select('id, full_name, email, role, is_active')
+                .eq('id', parsed.id)
+                .maybeSingle();
+
+              if (!error && dbUser) {
+                if (dbUser.is_active === false) {
+                  // User dinonaktifkan: batalkan sesi dan redirect ke login
+                  localStorage.removeItem(AUTH_STORAGE_KEY);
+                  setCurrentUser(null);
+                  setLoading(false);
+                  return;
+                }
+                const sessionUser: AuthSessionUser = {
+                  id: dbUser.id,
+                  full_name: dbUser.full_name,
+                  email: dbUser.email,
+                  role: dbUser.role,
+                };
+                setCurrentUser(sessionUser);
+                localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(sessionUser));
+                setLoading(false);
+                return;
+              }
+            }
+            setCurrentUser(parsed);
+          }
         }
+      } catch (e) {
+        console.error('Failed to parse auth session:', e);
+        localStorage.removeItem(AUTH_STORAGE_KEY);
+        setCurrentUser(null);
+      } finally {
+        setLoading(false);
       }
-    } catch (e) {
-      console.error('Failed to parse auth session:', e);
-    } finally {
-      setLoading(false);
-    }
+    };
+
+    validateSession();
   }, []);
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {

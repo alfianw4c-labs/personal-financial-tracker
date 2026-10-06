@@ -11,6 +11,8 @@ import {
   ShieldCheck,
   X,
   ChevronRight,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
@@ -20,9 +22,17 @@ interface NavbarProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
   onOpenIntegrationTab?: () => void;
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
-export function Navbar({ activeTab, setActiveTab, onOpenIntegrationTab }: NavbarProps) {
+export function Navbar({
+  activeTab,
+  setActiveTab,
+  onOpenIntegrationTab,
+  collapsed = false,
+  onToggleCollapse,
+}: NavbarProps) {
   const { currentUser, logout, isSuperAdmin, changePassword } = useAuth();
   const { privacyMode, setPrivacyMode, exceededLimitCountCurrentMonth } = useData();
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -92,30 +102,61 @@ export function Navbar({ activeTab, setActiveTab, onOpenIntegrationTab }: Navbar
       {/* ======================================================== */}
       {/* 1. DESKTOP SIDEBAR (Tampil di md ke atas)               */}
       {/* ======================================================== */}
-      <aside className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 md:border-r md:border-slate-200 md:bg-white md:z-30">
-        <div className="flex flex-col h-full justify-between p-4">
+      <aside
+        className={`hidden md:flex ${
+          collapsed ? 'md:w-20' : 'md:w-64'
+        } md:flex-col md:fixed md:inset-y-0 md:border-r md:border-slate-200 md:bg-white md:z-30 transition-[width] duration-200 select-none`}
+      >
+        <div className={`flex flex-col h-full justify-between ${collapsed ? 'p-3 items-center' : 'p-4'}`}>
           {/* Top: Brand & Menu */}
-          <div className="space-y-6">
-            {/* Brand Wordmark */}
-            <div className="px-2 pt-2 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[#1E6B4F] text-white flex items-center justify-center font-extrabold text-base shadow-sm shrink-0">
-                DC
+          <div className="space-y-6 w-full">
+            {/* Brand Wordmark & Collapse Toggle */}
+            <div className={`pt-2 flex items-center ${collapsed ? 'flex-col gap-2 justify-center' : 'justify-between px-2'}`}>
+              <div className={`flex items-center ${collapsed ? 'justify-center' : 'gap-3'} min-w-0`}>
+                <div
+                  className="w-10 h-10 rounded-xl bg-[#1E6B4F] text-white flex items-center justify-center font-extrabold text-base shadow-sm shrink-0 cursor-pointer hover:opacity-90 transition-opacity"
+                  onClick={onToggleCollapse}
+                  title={collapsed ? 'Klik untuk perluas sidebar' : 'Daily Cashflow'}
+                >
+                  DC
+                </div>
+                {!collapsed && (
+                  <div className="min-w-0">
+                    <span className="text-base font-bold tracking-tight text-slate-900 block leading-tight truncate">
+                      Daily Cashflow
+                    </span>
+                    <span className="text-[11px] text-slate-500 font-medium block truncate">
+                      Keuangan Keluarga
+                    </span>
+                  </div>
+                )}
               </div>
-              <div className="min-w-0">
-                <span className="text-base font-bold tracking-tight text-slate-900 block leading-tight truncate">
-                  Daily Cashflow
-                </span>
-                <span className="text-[11px] text-slate-500 font-medium block truncate">
-                  Keuangan Keluarga
-                </span>
-              </div>
+
+              {onToggleCollapse && (
+                <button
+                  type="button"
+                  onClick={onToggleCollapse}
+                  title={collapsed ? 'Perluas Sidebar' : 'Ciutkan Sidebar (Hanya icon)'}
+                  className={`p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors ${
+                    collapsed ? 'mt-1 w-8 h-8 flex items-center justify-center' : ''
+                  }`}
+                >
+                  {collapsed ? (
+                    <PanelLeftOpen className="w-4 h-4 text-[#1E6B4F]" />
+                  ) : (
+                    <PanelLeftClose className="w-4 h-4" />
+                  )}
+                </button>
+              )}
             </div>
 
             {/* Navigation (Tepat 4 Menu Utama) */}
-            <nav className="space-y-1">
-              <span className="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
-                Menu Utama
-              </span>
+            <nav className="space-y-1.5 w-full">
+              {!collapsed && (
+                <span className="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
+                  Menu Utama
+                </span>
+              )}
 
               {navItems.map((item) => {
                 const Icon = item.icon;
@@ -124,20 +165,28 @@ export function Navbar({ activeTab, setActiveTab, onOpenIntegrationTab }: Navbar
                   <button
                     key={item.id}
                     onClick={() => setActiveTab(item.id)}
-                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition-all ${
+                    title={collapsed ? `${item.label}${item.badge !== undefined ? ` (${item.badge})` : ''}` : undefined}
+                    className={`relative w-full flex items-center ${
+                      collapsed ? 'justify-center p-2.5 rounded-xl' : 'justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold'
+                    } tracking-wide transition-all ${
                       isActive
                         ? 'bg-[#1E6B4F]/10 text-[#1E6B4F] font-bold border border-[#1E6B4F]/20 shadow-2xs'
                         : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 border border-transparent'
                     }`}
                   >
-                    <div className="flex items-center gap-3">
-                      <Icon className={`w-4 h-4 ${isActive ? 'text-[#1E6B4F]' : 'text-slate-500'}`} />
-                      <span>{item.label}</span>
+                    <div className={`flex items-center ${collapsed ? 'justify-center' : 'gap-3'}`}>
+                      <Icon className={`${collapsed ? 'w-5 h-5' : 'w-4 h-4'} ${isActive ? 'text-[#1E6B4F]' : 'text-slate-500'}`} />
+                      {!collapsed && <span>{item.label}</span>}
                     </div>
+
                     {item.badge !== undefined && (
-                      <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-rose-500 text-white shadow-xs">
-                        {item.badge}
-                      </span>
+                      collapsed ? (
+                        <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-white" />
+                      ) : (
+                        <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-rose-500 text-white shadow-xs">
+                          {item.badge}
+                        </span>
+                      )
                     )}
                   </button>
                 );
@@ -146,12 +195,20 @@ export function Navbar({ activeTab, setActiveTab, onOpenIntegrationTab }: Navbar
           </div>
 
           {/* Bottom Sidebar: Status DB, Privacy Toggle & User Session */}
-          <div className="space-y-3 pt-4 border-t border-slate-100">
+          <div className="space-y-2.5 pt-4 border-t border-slate-100 w-full">
             {/* Database Status Button */}
             <button
               onClick={handleDbClick}
-              title="Status Database - Klik untuk buka Pengaturan Integrasi"
-              className={`w-full flex items-center justify-between p-2.5 rounded-xl border text-xs font-semibold transition-all ${
+              title={
+                collapsed
+                  ? isConnectedToSupabase
+                    ? 'Database Supabase Terhubung'
+                    : 'Database Belum Terhubung (Klik untuk integrasi)'
+                  : 'Status Database - Klik untuk buka Pengaturan Integrasi'
+              }
+              className={`w-full flex items-center ${
+                collapsed ? 'justify-center p-2.5' : 'justify-between p-2.5 text-xs font-semibold'
+              } rounded-xl border transition-all ${
                 isConnectedToSupabase
                   ? 'border-emerald-200 bg-emerald-50/70 text-emerald-900 hover:bg-emerald-100/70'
                   : 'border-amber-200 bg-amber-50/70 text-amber-900 hover:bg-amber-100/70'
@@ -159,64 +216,90 @@ export function Navbar({ activeTab, setActiveTab, onOpenIntegrationTab }: Navbar
             >
               <div className="flex items-center gap-2">
                 <span
-                  className={`w-2 h-2 rounded-full shrink-0 ${
+                  className={`w-2.5 h-2.5 rounded-full shrink-0 ${
                     isConnectedToSupabase ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'
                   }`}
                 />
-                <span className="text-[11px] truncate">
-                  {isConnectedToSupabase ? 'Supabase Terhubung' : 'Belum Terhubung DB'}
-                </span>
+                {!collapsed && (
+                  <span className="text-[11px] truncate">
+                    {isConnectedToSupabase ? 'Supabase Terhubung' : 'Belum Terhubung DB'}
+                  </span>
+                )}
               </div>
-              <ChevronRight className="w-3.5 h-3.5 opacity-60 shrink-0" />
+              {!collapsed && <ChevronRight className="w-3.5 h-3.5 opacity-60 shrink-0" />}
             </button>
 
             {/* Privacy Toggle Button */}
             <button
               onClick={() => setPrivacyMode(!privacyMode)}
-              className="w-full flex items-center justify-between px-3 py-2 text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors"
+              title={privacyMode ? 'Tampilkan Saldo' : 'Sembunyikan Saldo'}
+              className={`w-full flex items-center ${
+                collapsed ? 'justify-center p-2.5' : 'justify-between px-3 py-2 text-xs font-medium'
+              } text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors`}
             >
-              <div className="flex items-center gap-2.5">
+              <div className={`flex items-center ${collapsed ? 'justify-center' : 'gap-2.5'}`}>
                 {privacyMode ? (
                   <EyeOff className="w-4 h-4 text-[#1E6B4F]" />
                 ) : (
                   <Eye className="w-4 h-4 text-slate-500" />
                 )}
-                <span>{privacyMode ? 'Sembunyikan Saldo' : 'Tampilkan Saldo'}</span>
+                {!collapsed && <span>{privacyMode ? 'Sembunyikan Saldo' : 'Tampilkan Saldo'}</span>}
               </div>
-              <span className="text-[10px] text-slate-400 font-mono">
-                {privacyMode ? 'ON' : 'OFF'}
-              </span>
+              {!collapsed && (
+                <span className="text-[10px] text-slate-400 font-mono">
+                  {privacyMode ? 'ON' : 'OFF'}
+                </span>
+              )}
             </button>
 
             {/* User Profile Card */}
             {currentUser && (
-              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between gap-2">
-                <button
-                  onClick={() => setShowProfileModal(true)}
-                  className="flex items-center gap-2.5 min-w-0 text-left hover:opacity-80 transition-opacity"
-                  title="Klik untuk lihat profil dan ubah kata sandi"
-                >
-                  <div className="w-8 h-8 rounded-full bg-[#1E6B4F] text-white flex items-center justify-center font-bold text-xs shrink-0">
+              collapsed ? (
+                <div className="flex flex-col items-center gap-2 pt-1">
+                  <button
+                    onClick={() => setShowProfileModal(true)}
+                    className="w-9 h-9 rounded-full bg-[#1E6B4F] text-white flex items-center justify-center font-bold text-xs shadow-xs hover:opacity-90 transition-opacity"
+                    title={`${currentUser.full_name} (${currentUser.role})`}
+                  >
                     {currentUser.full_name?.charAt(0).toUpperCase() || 'U'}
-                  </div>
-                  <div className="min-w-0">
-                    <span className="text-xs font-bold text-slate-900 block truncate">
-                      {currentUser.full_name}
-                    </span>
-                    <span className="text-[10px] text-slate-500 capitalize block truncate">
-                      {currentUser.role === 'superadmin' ? 'Superadmin' : 'User Keluarga'}
-                    </span>
-                  </div>
-                </button>
+                  </button>
+                  <button
+                    onClick={logout}
+                    title="Keluar Akun"
+                    className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                  >
+                    <LogOut className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between gap-2">
+                  <button
+                    onClick={() => setShowProfileModal(true)}
+                    className="flex items-center gap-2.5 min-w-0 text-left hover:opacity-80 transition-opacity"
+                    title="Klik untuk lihat profil dan ubah kata sandi"
+                  >
+                    <div className="w-8 h-8 rounded-full bg-[#1E6B4F] text-white flex items-center justify-center font-bold text-xs shrink-0">
+                      {currentUser.full_name?.charAt(0).toUpperCase() || 'U'}
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-xs font-bold text-slate-900 block truncate">
+                        {currentUser.full_name}
+                      </span>
+                      <span className="text-[10px] text-slate-500 capitalize block truncate">
+                        {currentUser.role === 'superadmin' ? 'Superadmin' : 'User Keluarga'}
+                      </span>
+                    </div>
+                  </button>
 
-                <button
-                  onClick={logout}
-                  title="Keluar"
-                  className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors shrink-0"
-                >
-                  <LogOut className="w-4 h-4" />
-                </button>
-              </div>
+                  <button
+                    onClick={logout}
+                    title="Keluar"
+                    className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors shrink-0"
+                  >
+                    <LogOut className="w-4 h-4" />
+                  </button>
+                </div>
+              )
             )}
           </div>
         </div>
