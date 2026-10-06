@@ -14,7 +14,7 @@ interface AuthSessionUser {
 interface AuthContextType {
   currentUser: AuthSessionUser | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string; code?: string }>;
   logout: () => void;
   isSuperAdmin: boolean;
   changePassword: (oldPassword: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
@@ -79,12 +79,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     validateSession();
   }, []);
 
-  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+  const login = async (
+    email: string,
+    password: string
+  ): Promise<{ success: boolean; error?: string; code?: string }> => {
     const cleanEmail = email.trim().toLowerCase();
     const cleanPassword = password.trim();
 
     if (!cleanEmail || !cleanPassword) {
-      return { success: false, error: 'Email dan password wajib diisi.' };
+      return { success: false, error: 'Email dan kata sandi wajib diisi.' };
     }
 
     const client = getSupabaseClient();
@@ -99,21 +102,148 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           .limit(1);
 
         if (error) {
-          return { success: false, error: `Gagal query user: ${error.message}` };
+          if (
+            error.code === '42P01' ||
+            error.message.includes('does not exist') ||
+            error.message.includes('app_users')
+          ) {
+            return {
+              success: false,
+              code: 'SCHEMA_NOT_FOUND',
+              error:
+                'Tabel app_users belum dibuat di database Supabase Anda. Buka menu "Atur Koneksi / Query SQL" di bawah dan jalankan query di Supabase SQL Editor.',
+            };
+          }
+          if (error.code === '42501' || error.message.includes('permission denied')) {
+            return {
+              success: false,
+              code: 'PERMISSION_DENIED',
+              error:
+                'Izin akses tabel app_users ditolak. Silakan jalankan query RLS di Supabase agar role anon diizinkan.',
+            };
+          }
+          return {
+            success: false,
+            error: `Gagal membaca database Supabase: ${error.message}`,
+          };
         }
 
         const user = users && users[0];
+
+        // Jika user tidak ditemukan berdasarkan email
         if (!user) {
-          return { success: false, error: 'Email atau password salah.' };
+          // Cek apakah tabel app_users masih kosong (belum ada baris sama sekali)
+          const { count, error: countErr } = await client
+            .from('app_users')
+            .select('id', { count: 'exact', head: true });
+
+          if (!countErr && (count === 0 || count === null)) {
+            // Jika tabel kosong dan user mencoba email admin default
+            const isDefaultSuperadmin =
+              (cleanEmail === 'admin@dailycashflow.local' ||
+                cleanEmail === 'alfianfaiz.w4c@gmail.com') &&
+              cleanPassword === 'admin123';
+
+            if (isDefaultSuperadmin) {
+              // Otomatis seed akun superadmin ke Supabase agar user langsung bisa masuk!
+              const autoAdmin = {
+                id:
+                  cleanEmail === 'alfianfaiz.w4c@gmail.com'
+                    ? '00000000-0000-0000-0000-000000000002'
+                    : '00000000-0000-0000-0000-000000000001',
+                full_name: 'Alfian Faiz (Superadmin)',
+                email: cleanEmail,
+                password_hash: bcrypt.hashSync(cleanPassword, 10),
+                role: 'superadmin' as const,
+                is_active: true,
+              };
+              const { error: insertErr } = await client.from('app_users').insert(autoAdmin);
+              if (!insertErr) {
+                const sessionUser: AuthSessionUser = {
+                  id: autoAdmin.id,
+                  full_name: autoAdmin.full_name,
+                  email: autoAdmin.email,
+                  role: 'superadmin',
+                };
+                setCurrentUser(sessionUser);
+                localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(sessionUser));
+                return { success: true };
+              }
+            }
+
+            return {
+              success: false,
+              code: 'TABLE_EMPTY',
+              error:
+                'Tabel pengguna (app_users) di Supabase masih kosong. Silakan jalankan query migrasi/seed di Supabase SQL Editor.',
+            };
+          }
+
+          // Coba autentikasi bawaan Supabase Auth (GoTrue) jika ada
+          if (client.auth) {
+            try {
+              const { data: authData, error: authError } = await client.auth.signInWithPassword({
+                email: cleanEmail,
+                password: cleanPassword,
+              });
+              if (!authError && authData.user) {
+                const sessionUser: AuthSessionUser = {
+                  id: authData.user.id,
+                  full_name: authData.user.user_metadata?.full_name || cleanEmail.split('@')[0],
+                  email: cleanEmail,
+                  role: 'superadmin',
+                };
+                setCurrentUser(sessionUser);
+                localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(sessionUser));
+                return { success: true };
+              }
+            } catch {
+              // Abaikan jika auth native tidak terkonfigurasi
+            }
+          }
+
+          return {
+            success: false,
+            error:
+              'Email tidak ditemukan di database Supabase. Pastikan email terdaftar atau gunakan admin@dailycashflow.local / alfianfaiz.w4c@gmail.com.',
+          };
         }
 
         if (user.is_active === false) {
           return { success: false, error: 'Akun Anda dinonaktifkan. Hubungi superadmin.' };
         }
 
-        const match = bcrypt.compareSync(cleanPassword, user.password_hash);
+        // Cek password hash: dukung hash bcrypt & teks biasa (jika diedit langsung di tabel Supabase)
+        let match = false;
+        if (user.password_hash) {
+          if (user.password_hash === cleanPassword) {
+            match = true;
+          } else {
+            try {
+              match = bcrypt.compareSync(cleanPassword, user.password_hash);
+            } catch {
+              match = false;
+            }
+          }
+        }
+
+        // Fallback coba Supabase Auth bawaan
+        if (!match && client.auth) {
+          try {
+            const { data: authData, error: authError } = await client.auth.signInWithPassword({
+              email: cleanEmail,
+              password: cleanPassword,
+            });
+            if (!authError && authData.user) {
+              match = true;
+            }
+          } catch {
+            // ignore
+          }
+        }
+
         if (!match) {
-          return { success: false, error: 'Email atau password salah.' };
+          return { success: false, error: 'Kata sandi tidak sesuai. Periksa kembali huruf besar/kecil.' };
         }
 
         const sessionUser: AuthSessionUser = {
@@ -127,26 +257,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(sessionUser));
         return { success: true };
       } catch (err: any) {
-        return { success: false, error: err.message || 'Terjadi kesalahan saat login.' };
+        return {
+          success: false,
+          error: err.message || 'Terjadi kesalahan saat memeriksa akun ke Supabase.',
+        };
       }
     }
 
-    // 2. Demo / Local fallback
+    // 2. Fallback Lokal (Jika Supabase belum disetup sama sekali)
     const storedDemoUsers = localStorage.getItem('daily_cashflow_demo_users');
     const userPool: AppUser[] = storedDemoUsers ? JSON.parse(storedDemoUsers) : INITIAL_USERS;
 
     const user = userPool.find((u) => u.email.toLowerCase() === cleanEmail);
     if (!user) {
-      return { success: false, error: 'Email atau password salah.' };
+      return {
+        success: false,
+        error:
+          'Koneksi Supabase belum dikonfigurasi dan email tidak cocok dengan akun lokal (admin@dailycashflow.local).',
+      };
     }
 
     if (user.is_active === false) {
       return { success: false, error: 'Akun Anda dinonaktifkan.' };
     }
 
-    const match = user.password_hash ? bcrypt.compareSync(cleanPassword, user.password_hash) : false;
+    let match = false;
+    if (user.password_hash) {
+      if (user.password_hash === cleanPassword) {
+        match = true;
+      } else {
+        try {
+          match = bcrypt.compareSync(cleanPassword, user.password_hash);
+        } catch {
+          match = false;
+        }
+      }
+    }
+
     if (!match) {
-      return { success: false, error: 'Email atau password salah.' };
+      return { success: false, error: 'Kata sandi salah.' };
     }
 
     const sessionUser: AuthSessionUser = {

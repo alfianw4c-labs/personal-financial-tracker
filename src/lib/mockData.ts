@@ -18,7 +18,7 @@ export const DEFAULT_SUPERADMIN_PASSWORD_HASH = bcrypt.hashSync(DEFAULT_SUPERADM
 
 export const INITIAL_USERS: AppUser[] = [
   {
-    id: 'u0000000-0000-0000-0000-000000000001',
+    id: '00000000-0000-0000-0000-000000000001',
     full_name: 'Alfian Faiz (Superadmin)',
     email: 'admin@dailycashflow.local',
     password_hash: DEFAULT_SUPERADMIN_PASSWORD_HASH,
@@ -27,7 +27,16 @@ export const INITIAL_USERS: AppUser[] = [
     created_at: new Date().toISOString(),
   },
   {
-    id: 'u0000000-0000-0000-0000-000000000002',
+    id: '00000000-0000-0000-0000-000000000002',
+    full_name: 'Alfian Faiz',
+    email: 'alfianfaiz.w4c@gmail.com',
+    password_hash: DEFAULT_SUPERADMIN_PASSWORD_HASH,
+    role: 'superadmin',
+    is_active: true,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: '00000000-0000-0000-0000-000000000003',
     full_name: 'Ofi (User Keluarga)',
     email: 'ofi@dailycashflow.local',
     password_hash: bcrypt.hashSync('user123', 10),

@@ -9,12 +9,19 @@ let cachedConfigKey: string | null = null;
 
 export function getSupabaseConfig(): SupabaseConfig | null {
   // 1. Cek Environment variables (prioritas 1)
-  const envUrl = import.meta.env.VITE_SUPABASE_URL;
-  const envKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-  if (envUrl && envKey && envUrl.startsWith('http')) {
+  const envUrl =
+    import.meta.env.VITE_SUPABASE_URL ||
+    (import.meta.env as any).SUPABASE_URL ||
+    (typeof window !== 'undefined' && (window as any).__SUPABASE_URL__);
+  const envKey =
+    import.meta.env.VITE_SUPABASE_ANON_KEY ||
+    (import.meta.env as any).SUPABASE_ANON_KEY ||
+    (typeof window !== 'undefined' && (window as any).__SUPABASE_ANON_KEY__);
+
+  if (envUrl && envKey && typeof envUrl === 'string' && envUrl.startsWith('http')) {
     return {
       url: envUrl.trim(),
-      anonKey: envKey.trim(),
+      anonKey: String(envKey).trim(),
       source: 'env',
     };
   }
@@ -34,6 +41,27 @@ export function getSupabaseConfig(): SupabaseConfig | null {
     }
   } catch (err) {
     console.error('Error reading saved supabase config:', err);
+  }
+
+  return null;
+}
+
+export async function fetchServerSupabaseConfig(): Promise<SupabaseConfig | null> {
+  // If already configured, return it
+  const existing = getSupabaseConfig();
+  if (existing) return existing;
+
+  try {
+    const res = await fetch('/api/config');
+    if (res.ok) {
+      const data = await res.json();
+      if (data?.supabase?.url && data?.supabase?.anonKey) {
+        saveSupabaseConfig(data.supabase.url, data.supabase.anonKey);
+        return getSupabaseConfig();
+      }
+    }
+  } catch (err) {
+    // ignore fetch error in pure client mode
   }
 
   return null;

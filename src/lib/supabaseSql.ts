@@ -1,5 +1,7 @@
--- ====================================================================
--- Daily Cashflow - Skema Database & Migrasi Awal (PostgreSQL / Supabase)
+// Skema SQL lengkap dan query migrasi untuk Supabase PostgreSQL
+export const SUPABASE_SETUP_SQL = `-- ====================================================================
+-- DAILY CASHFLOW - SKEMA LENGKAP & USER SEED (POSTGRESQL / SUPABASE)
+-- Jalankan di: Supabase Dashboard -> SQL Editor -> New Query -> Run
 -- ====================================================================
 
 -- 1. ENUM TYPES
@@ -129,13 +131,12 @@ CREATE TABLE IF NOT EXISTS quarterly_plan_items (
   UNIQUE (plan_id, sub_category_id)
 );
 
--- 11. TABEL: app_meta
+-- 11. TABEL: app_meta & settings
 CREATE TABLE IF NOT EXISTS app_meta (
   key text PRIMARY KEY,
   value text NOT NULL
 );
 
--- 12. TABEL: settings
 CREATE TABLE IF NOT EXISTS settings (
   id int PRIMARY KEY DEFAULT 1 CHECK (id = 1),
   emergency_fund_account_id uuid REFERENCES accounts(id),
@@ -143,7 +144,7 @@ CREATE TABLE IF NOT EXISTS settings (
   show_gold_savings boolean DEFAULT false
 );
 
--- 13. VIEW: account_balances
+-- 12. VIEW: account_balances
 CREATE OR REPLACE VIEW account_balances AS
 SELECT
   a.id,
@@ -163,7 +164,7 @@ SELECT
   ) AS current_balance
 FROM accounts a;
 
--- 14. VIEW: monthly_limit_status
+-- 13. VIEW: monthly_limit_status
 CREATE OR REPLACE VIEW monthly_limit_status AS
 WITH spent AS (
   SELECT date_trunc('month', t.tx_date)::date AS month,
@@ -190,7 +191,8 @@ LEFT JOIN quarterly_plans p
 LEFT JOIN quarterly_plan_items i
   ON i.plan_id = p.id AND i.sub_category_id = s.sub_category_id;
 
--- 15. HAK AKSES API & NONAKTIFKAN RLS AGAR TIDAK MEMBLOKIR AKUN
+-- 14. HAK AKSES API & NONAKTIFKAN RLS AGAR TIDAK MEMBLOKIR AKUN
+-- Supabase REST API membutuhkan hak akses tabel ke role anon & authenticated
 GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
 GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated, service_role;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, service_role;
@@ -211,13 +213,12 @@ ALTER TABLE quarterly_plan_items DISABLE ROW LEVEL SECURITY;
 ALTER TABLE app_meta DISABLE ROW LEVEL SECURITY;
 ALTER TABLE settings DISABLE ROW LEVEL SECURITY;
 
--- 16. SEED DATA AWAL
+-- 15. SEED DATA AWAL & 3 AKUN PENGGUNA (SUPERADMIN & USER)
 INSERT INTO app_meta (key, value)
 VALUES ('schema_version', '1')
 ON CONFLICT (key) DO UPDATE SET value = '1';
 
--- Seed Pengguna Awal (Superadmin & User Keluarga)
--- Password default: admin123
+-- Kredensial default: admin123
 INSERT INTO app_users (id, full_name, email, password_hash, role, is_active)
 VALUES
   ('00000000-0000-0000-0000-000000000001', 'Alfian Faiz (Superadmin)', 'admin@dailycashflow.local', '$2b$10$aWvqMAMsSCJR5id.2LHOq.3oLx.8UWxBgi3cOrTGgRh/H7xY0uEIe', 'superadmin', true),
@@ -273,32 +274,20 @@ VALUES
 ON CONFLICT (scope, name) DO NOTHING;
 
 -- Kategori
--- Income Categories
 INSERT INTO categories (id, transaction_type_id, name, color, is_active)
 VALUES
   ('c0000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000001', 'Pendapatan Rutin', '#1E6B4F', true),
-  ('c0000000-0000-0000-0000-000000000002', 'a0000000-0000-0000-0000-000000000001', 'Bunga & Bagi Hasil', '#0D9488', true)
-ON CONFLICT (transaction_type_id, name) DO NOTHING;
-
--- Expense Categories
-INSERT INTO categories (id, transaction_type_id, name, color, is_active)
-VALUES
+  ('c0000000-0000-0000-0000-000000000002', 'a0000000-0000-0000-0000-000000000001', 'Bunga & Bagi Hasil', '#0D9488', true),
   ('c0000000-0000-0000-0000-000000000003', 'a0000000-0000-0000-0000-000000000002', 'Tagihan Bulanan', '#E11D48', true),
   ('c0000000-0000-0000-0000-000000000004', 'a0000000-0000-0000-0000-000000000002', 'Rutinan & Kebutuhan Harian', '#D97706', true)
 ON CONFLICT (transaction_type_id, name) DO NOTHING;
 
 -- Sub Kategori
--- Under Pendapatan Rutin
 INSERT INTO sub_categories (id, category_id, name, default_limit, color, is_active)
 VALUES
   ('d0000000-0000-0000-0000-000000000001', 'c0000000-0000-0000-0000-000000000001', 'Gaji Pokok', NULL, '#1E6B4F', true),
   ('d0000000-0000-0000-0000-000000000002', 'c0000000-0000-0000-0000-000000000001', 'Bonus & Insentif', NULL, '#16A34A', true),
-  ('d0000000-0000-0000-0000-000000000003', 'c0000000-0000-0000-0000-000000000002', 'Bunga Tabungan / Deposito', NULL, '#0D9488', true)
-ON CONFLICT (category_id, name) DO NOTHING;
-
--- Under Tagihan Bulanan (with limits)
-INSERT INTO sub_categories (id, category_id, name, default_limit, color, is_active)
-VALUES
+  ('d0000000-0000-0000-0000-000000000003', 'c0000000-0000-0000-0000-000000000002', 'Bunga Tabungan / Deposito', NULL, '#0D9488', true),
   ('d0000000-0000-0000-0000-000000000004', 'c0000000-0000-0000-0000-000000000003', 'Listrik', 210000, '#E11D48', true),
   ('d0000000-0000-0000-0000-000000000005', 'c0000000-0000-0000-0000-000000000003', 'Wifi', 250000, '#BE123C', true),
   ('d0000000-0000-0000-0000-000000000006', 'c0000000-0000-0000-0000-000000000003', 'Pulsa/Kuota', 150000, '#F43F5E', true),
@@ -306,12 +295,7 @@ VALUES
   ('d0000000-0000-0000-0000-000000000008', 'c0000000-0000-0000-0000-000000000003', 'Air Galon', 60000, '#0369A1', true),
   ('d0000000-0000-0000-0000-000000000009', 'c0000000-0000-0000-0000-000000000003', 'Sampah & Iuran Warga', 50000, '#64748B', true),
   ('d0000000-0000-0000-0000-000000000010', 'c0000000-0000-0000-0000-000000000003', 'Gas', 45000, '#F97316', true),
-  ('d0000000-0000-0000-0000-000000000011', 'c0000000-0000-0000-0000-000000000003', 'Biaya Admin Bank', 30000, '#94A3B8', true)
-ON CONFLICT (category_id, name) DO NOTHING;
-
--- Under Rutinan & Kebutuhan Harian
-INSERT INTO sub_categories (id, category_id, name, default_limit, color, is_active)
-VALUES
+  ('d0000000-0000-0000-0000-000000000011', 'c0000000-0000-0000-0000-000000000003', 'Biaya Admin Bank', 30000, '#94A3B8', true),
   ('d0000000-0000-0000-0000-000000000012', 'c0000000-0000-0000-0000-000000000004', 'Kebutuhan Bahan Makan', 1500000, '#D97706', true),
   ('d0000000-0000-0000-0000-000000000013', 'c0000000-0000-0000-0000-000000000004', 'Makan Harian & Lauk', 1200000, '#B45309', true),
   ('d0000000-0000-0000-0000-000000000014', 'c0000000-0000-0000-0000-000000000004', 'Kebutuhan Rumah', 500000, '#78350F', true),
@@ -323,8 +307,7 @@ VALUES
   ('d0000000-0000-0000-0000-000000000020', 'c0000000-0000-0000-0000-000000000004', 'Jajan Suami', 400000, '#3B82F6', true)
 ON CONFLICT (category_id, name) DO NOTHING;
 
--- Akun / Bank Accounts
--- Cash & Bank
+-- Akun Bank & Dompet
 INSERT INTO accounts (id, name, group_type, purpose, opening_balance, owner_label, sort_order, is_active)
 VALUES
   ('e0000000-0000-0000-0000-000000000001', 'Seabank Ofi', 'bank', 'Rekening Operasional Istri', 2500000, 'Ofi', 1, true),
@@ -334,21 +317,11 @@ VALUES
   ('e0000000-0000-0000-0000-000000000005', 'Cash Dapur', 'cash', 'Uang Tunai Belanja Sayur & Pasar', 450000, 'Bersama', 5, true),
   ('e0000000-0000-0000-0000-000000000006', 'Cash Alfian', 'cash', 'Dompet Alfian', 200000, 'Alfian', 6, true),
   ('e0000000-0000-0000-0000-000000000007', 'Cash Ofi', 'cash', 'Dompet Ofi', 150000, 'Ofi', 7, true),
-  ('e0000000-0000-0000-0000-000000000008', 'Cash Tagihan', 'cash', 'Amplop Iuran & Tagihan Tunai', 300000, 'Bersama', 8, true)
-ON CONFLICT (name) DO NOTHING;
-
--- Tabungan (Tujuan & Target)
-INSERT INTO accounts (id, name, group_type, purpose, savings_goal_name, target_amount, opening_balance, owner_label, sort_order, is_active)
-VALUES
-  ('e0000000-0000-0000-0000-000000000009', 'Tabungan Darurat', 'tabungan', 'Dana Darurat 6 Bulan Pengeluaran', 'Dana Darurat', 30000000, 18500000, 'Bersama', 9, true),
-  ('e0000000-0000-0000-0000-000000000010', 'Tabungan Kesehatan', 'tabungan', 'Biaya Medis & Persalinan', 'Kesehatan', 20000000, 12000000, 'Bersama', 10, true),
-  ('e0000000-0000-0000-0000-000000000011', 'Tabungan Rumah', 'tabungan', 'Renovasi & DP Rumah', 'Rumah', 50000000, 24000000, 'Bersama', 11, true),
-  ('e0000000-0000-0000-0000-000000000012', 'Tabungan Kendaraan', 'tabungan', 'Servis Besar & Upgrade Kendaraan', 'Kendaraan', 15000000, 7500000, 'Bersama', 12, true)
-ON CONFLICT (name) DO NOTHING;
-
--- Paylater & Kartu Kredit
-INSERT INTO accounts (id, name, group_type, purpose, opening_balance, owner_label, sort_order, is_active)
-VALUES
+  ('e0000000-0000-0000-0000-000000000008', 'Cash Tagihan', 'cash', 'Amplop Iuran & Tagihan Tunai', 300000, 'Bersama', 8, true),
+  ('e0000000-0000-0000-0000-000000000009', 'Tabungan Darurat', 'tabungan', 'Dana Darurat 6 Bulan Pengeluaran', 18500000, 'Bersama', 9, true),
+  ('e0000000-0000-0000-0000-000000000010', 'Tabungan Kesehatan', 'tabungan', 'Biaya Medis & Persalinan', 12000000, 'Bersama', 10, true),
+  ('e0000000-0000-0000-0000-000000000011', 'Tabungan Rumah', 'tabungan', 'Renovasi & DP Rumah', 24000000, 'Bersama', 11, true),
+  ('e0000000-0000-0000-0000-000000000012', 'Tabungan Kendaraan', 'tabungan', 'Servis Besar & Upgrade Kendaraan', 7500000, 'Bersama', 12, true),
   ('e0000000-0000-0000-0000-000000000013', 'Spaylater Alfian', 'paylater', 'Tagihan Paylater Shopee', 0, 'Alfian', 13, true),
   ('e0000000-0000-0000-0000-000000000014', 'BRI CC', 'paylater', 'Kartu Kredit BRI Alfian', 0, 'Alfian', 14, true)
 ON CONFLICT (name) DO NOTHING;
@@ -359,23 +332,4 @@ VALUES (1, 'e0000000-0000-0000-0000-000000000009', 3, false)
 ON CONFLICT (id) DO UPDATE
 SET emergency_fund_account_id = 'e0000000-0000-0000-0000-000000000009',
     runway_months_basis = 3;
-
--- Perencanaan Kuartal Contoh (Q4 2026)
-INSERT INTO quarterly_plans (id, year, quarter, title, notes)
-VALUES (
-  'f0000000-0000-0000-0000-000000000001',
-  2026,
-  4,
-  'Q4 2026 - Persiapan Kelahiran & Akhir Tahun',
-  'Fokus alokasi tabungan kesehatan dan kendalikan pengeluaran jajan/hiburan.'
-)
-ON CONFLICT (year, quarter) DO NOTHING;
-
-INSERT INTO quarterly_plan_items (plan_id, sub_category_id, monthly_limit, note)
-VALUES
-  ('f0000000-0000-0000-0000-000000000001', 'd0000000-0000-0000-0000-000000000004', 210000, 'Limit listrik PLN pascabayar'),
-  ('f0000000-0000-0000-0000-000000000001', 'd0000000-0000-0000-0000-000000000005', 250000, 'Paket internet Indihome / Biznet'),
-  ('f0000000-0000-0000-0000-000000000001', 'd0000000-0000-0000-0000-000000000012', 1500000, 'Bahan masakan segar pasar mingguan'),
-  ('f0000000-0000-0000-0000-000000000001', 'd0000000-0000-0000-0000-000000000015', 400000, 'Pertamax motor dan mobil'),
-  ('f0000000-0000-0000-0000-000000000001', 'd0000000-0000-0000-0000-000000000018', 450000, 'Budget santai keluarga')
-ON CONFLICT (plan_id, sub_category_id) DO NOTHING;
+`;

@@ -20,11 +20,17 @@ import {
   Database,
   PanelLeftClose,
   PanelLeftOpen,
+  RefreshCw,
+  AlertTriangle,
+  Copy,
+  Check,
+  ArrowRight,
 } from 'lucide-react';
 import { SupabaseSetupView } from '../integration/SupabaseSetupView';
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
 import { useToast } from '../layout/NotificationToast';
+import { getSupabaseConfig } from '../../lib/supabase';
 import {
   formatRupiah,
   formatNumberOnly,
@@ -71,6 +77,9 @@ export function MasterDataView({ initialTab }: MasterDataViewProps = {}) {
     saveAppUser,
     toggleUserStatus,
     resetUserPassword,
+    isSupabaseConnected,
+    dbSyncError,
+    refetchAll,
   } = useData();
 
   const { showToast } = useToast();
@@ -187,6 +196,17 @@ export function MasterDataView({ initialTab }: MasterDataViewProps = {}) {
     setUserPassword('');
     setUserRole('user');
     setUserActive(true);
+  };
+
+  const [isSyncingUsers, setIsSyncingUsers] = useState(false);
+  const [copiedFixRls, setCopiedFixRls] = useState(false);
+  const supabaseCfg = getSupabaseConfig();
+
+  const handleSyncFromSupabase = async () => {
+    setIsSyncingUsers(true);
+    await refetchAll();
+    setIsSyncingUsers(false);
+    showToast('info', 'Sinkronisasi Selesai', 'Data pengguna telah diperbarui dari database.');
   };
 
   // Open modal for add
@@ -1024,7 +1044,91 @@ export function MasterDataView({ initialTab }: MasterDataViewProps = {}) {
 
       {/* TAB 7: USER MANAGEMENT (SUPERADMIN ONLY) */}
       {activeTab === 'users' && isSuperAdmin && (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden space-y-4">
+        <div className="space-y-4">
+          {/* Status Integrasi Supabase Banner */}
+          {!isSupabaseConnected ? (
+            <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 space-y-2">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-start gap-2.5">
+                  <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                  <div>
+                    <h4 className="font-bold text-xs sm:text-sm text-amber-950">
+                      Database Supabase Belum Terhubung di Browser Ini
+                    </h4>
+                    <p className="text-xs text-amber-800 mt-0.5 leading-relaxed">
+                      Sistem saat ini berjalan dalam mode offline lokal sehingga hanya mendeteksi 1 akun simulasi. Tiga akun yang ada di database Supabase Anda belum dapat dibaca.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('integrasi')}
+                  className="px-3.5 py-2 bg-[#1E6B4F] hover:bg-[#16523c] text-white text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-colors shrink-0 shadow-xs cursor-pointer self-start sm:self-auto"
+                >
+                  <span>Hubungkan Supabase</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-200/80 text-emerald-950 space-y-2.5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                  <span className="text-xs font-bold text-emerald-900">
+                    Terhubung ke Database Supabase:
+                  </span>
+                  <span className="text-xs font-mono text-emerald-700 bg-emerald-100/60 px-2 py-0.5 rounded-md">
+                    {supabaseCfg ? new URL(supabaseCfg.url).hostname : 'Supabase Cloud'}
+                  </span>
+                  <span className="text-xs font-semibold text-slate-600 bg-white px-2 py-0.5 rounded-md border border-emerald-200">
+                    {appUsers.length} akun terdeteksi di sistem
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleSyncFromSupabase}
+                  disabled={isSyncingUsers}
+                  className="px-3 py-1.5 bg-white hover:bg-emerald-100/60 text-[#1E6B4F] border border-emerald-300 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50 shadow-2xs self-start sm:self-auto"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isSyncingUsers ? 'animate-spin' : ''}`} />
+                  <span>{isSyncingUsers ? 'Menyinkronkan...' : 'Sinkronkan Ulang dari Supabase'}</span>
+                </button>
+              </div>
+
+              {/* Notice jika jumlah akun di Supabase dashboard berbeda dengan yang terdeteksi */}
+              {appUsers.length < 3 && (
+                <div className="pt-2 border-t border-emerald-200/60 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                  <div className="text-amber-800 text-[11px] leading-relaxed">
+                    <strong>Pemberitahuan:</strong> Jika di Dashboard Supabase terdapat 3 akun tapi di sini hanya terbaca {appUsers.length} akun, jalankan query perbaikan RLS & sync akun di Supabase SQL Editor.
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const query = `ALTER TABLE public.app_users DISABLE ROW LEVEL SECURITY;\nGRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated, service_role;\nINSERT INTO public.app_users (id, full_name, email, password_hash, role, is_active)\nSELECT id, coalesce(raw_user_meta_data->>'full_name', split_part(email, '@', 1)), email, '$2b$10$aWvqMAMsSCJR5id.2LHOq.3oLx.8UWxBgi3cOrTGgRh/H7xY0uEIe', 'superadmin', true FROM auth.users ON CONFLICT (email) DO UPDATE SET is_active = true;`;
+                      navigator.clipboard.writeText(query);
+                      setCopiedFixRls(true);
+                      setTimeout(() => setCopiedFixRls(false), 2500);
+                      showToast('info', 'Query Disalin', 'Jalankan query ini di Supabase SQL Editor lalu klik Sinkronkan Ulang.');
+                    }}
+                    className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white font-medium text-[11px] rounded-lg shrink-0 flex items-center gap-1 cursor-pointer transition-colors"
+                  >
+                    {copiedFixRls ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                    <span>{copiedFixRls ? 'Tersalin!' : 'Salin Query Fix RLS & Auth (1-Klik)'}</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {dbSyncError && (
+            <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+              <span>{dbSyncError}</span>
+            </div>
+          )}
+
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden space-y-4">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
@@ -1108,6 +1212,7 @@ export function MasterDataView({ initialTab }: MasterDataViewProps = {}) {
               </tbody>
             </table>
           </div>
+        </div>
         </div>
       )}
 

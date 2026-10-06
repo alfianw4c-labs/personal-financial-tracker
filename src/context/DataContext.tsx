@@ -13,7 +13,7 @@ import type {
   AppUser,
   MonthlyLimitStatus,
 } from '../types';
-import { getSupabaseClient } from '../lib/supabase';
+import { getSupabaseClient, getSupabaseConfig, fetchServerSupabaseConfig } from '../lib/supabase';
 import {
   INITIAL_TRANSACTION_TYPES,
   INITIAL_FLOW_PARTIES,
@@ -50,6 +50,8 @@ interface DataContextType {
   privacyMode: boolean;
   setPrivacyMode: React.Dispatch<React.SetStateAction<boolean>>;
   isLoading: boolean;
+  isSupabaseConnected: boolean;
+  dbSyncError: string | null;
   refetchAll: () => Promise<void>;
 
   // Account balances calculation
@@ -117,6 +119,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   });
 
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isSupabaseConnected, setIsSupabaseConnected] = useState<boolean>(() => !!getSupabaseConfig());
+  const [dbSyncError, setDbSyncError] = useState<string | null>(null);
 
   // Sync privacy mode to localStorage
   useEffect(() => {
@@ -144,7 +148,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         ? storedTxs.filter((t: any) => !t.id?.startsWith('tx-0'))
         : [];
       setTransactions(cleanTxs);
-      setAppUsers(getStored('demo_users', INITIAL_USERS));
+      const storedUsers = getStored('demo_users', INITIAL_USERS);
+      setAppUsers(Array.isArray(storedUsers) && storedUsers.length >= 3 ? storedUsers : INITIAL_USERS);
     } catch (e) {
       console.error('Error loading fallback data:', e);
     }
@@ -160,6 +165,16 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const refetchAll = useCallback(async () => {
     setIsLoading(true);
+    setDbSyncError(null);
+
+    // Auto-detect server-side Supabase environment variable jika belum terpasang
+    let config = getSupabaseConfig();
+    if (!config) {
+      config = await fetchServerSupabaseConfig();
+    }
+    const hasConfig = !!config;
+    setIsSupabaseConnected(hasConfig);
+
     const client = getSupabaseClient();
 
     if (!client) {
@@ -191,8 +206,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         client.from('quarterly_plans').select('*').order('year', { ascending: false }),
         client.from('quarterly_plan_items').select('*'),
         client.from('settings').select('*').maybeSingle(),
-        client.from('app_users').select('id, full_name, email, role, is_active, created_at').order('full_name'),
+        client.from('app_users').select('*').order('full_name'),
       ]);
+
+      if (usersRes.error) {
+        console.warn('Gagal membaca tabel app_users di Supabase:', usersRes.error);
+        setDbSyncError(`Gagal membaca app_users: ${usersRes.error.message}`);
+      }
 
       if (typesRes.data && typesRes.data.length > 0) {
         setTransactionTypes(typesRes.data);
@@ -244,11 +264,15 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         setSettings(settingsRes.data);
       }
 
-      if (usersRes.data) {
+      if (usersRes.data && usersRes.data.length > 0) {
         setAppUsers(usersRes.data as AppUser[]);
+      } else if (!usersRes.error) {
+        // Jika tabel ada tapi belum ada user di Supabase
+        setAppUsers(INITIAL_USERS);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to fetch from Supabase, using local fallback:', err);
+      setDbSyncError(err?.message || 'Gagal terhubung ke Supabase');
       loadLocalFallback();
     } finally {
       setIsLoading(false);
@@ -1011,6 +1035,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         privacyMode,
         setPrivacyMode,
         isLoading,
+        isSupabaseConnected,
+        dbSyncError,
         refetchAll,
         getAccountBalance,
         getMonthlyLimitStatusList,

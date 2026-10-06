@@ -9,10 +9,19 @@ import { DashboardView } from './components/dashboard/DashboardView';
 import { TransactionListView } from './components/transactions/TransactionListView';
 import { PlanningView } from './components/planning/PlanningView';
 import { MasterDataView } from './components/master/MasterDataView';
+import { fetchServerSupabaseConfig } from './lib/supabase';
 
 function MainApp() {
   const { currentUser, loading: authLoading } = useAuth();
-  const { isLoading: dataLoading } = useData();
+  const { isLoading: dataLoading, refetchAll } = useData();
+
+  useEffect(() => {
+    fetchServerSupabaseConfig().then((cfg) => {
+      if (cfg) {
+        refetchAll();
+      }
+    }).catch(() => {});
+  }, [refetchAll]);
 
   const [activeTab, setActiveTab] = useState<'dashboard' | 'transaksi' | 'perencanaan' | 'pengaturan'>('dashboard');
   const [pengaturanSubTab, setPengaturanSubTab] = useState<any>('accounts');

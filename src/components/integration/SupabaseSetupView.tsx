@@ -23,6 +23,7 @@ import {
   testSupabaseConnection,
   getSupabaseClient,
 } from '../../lib/supabase';
+import { SUPABASE_SETUP_SQL } from '../../lib/supabaseSql';
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
 import { useToast } from '../layout/NotificationToast';
@@ -75,10 +76,10 @@ export function SupabaseSetupView({ onBackToApp }: SupabaseSetupViewProps) {
   const [copiedVercel, setCopiedVercel] = useState<boolean>(false);
 
   // SQL Script cached for manual copy
-  const [sqlContent, setSqlContent] = useState<string>('');
+  const [sqlContent, setSqlContent] = useState<string>(SUPABASE_SETUP_SQL);
 
   useEffect(() => {
-    // Muat SQL dari file migrations jika dibutuhkan
+    // Muat SQL dari file migrations jika dibutuhkan, fallback ke SUPABASE_SETUP_SQL
     fetch('/supabase/migrations/001_init.sql')
       .then((res) => {
         if (res.ok) return res.text();
