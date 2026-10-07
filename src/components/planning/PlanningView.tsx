@@ -12,6 +12,11 @@ import {
   Save,
   X,
   Info,
+  ChevronDown,
+  ChevronUp,
+  ReceiptText,
+  ArrowRight,
+  Wallet,
 } from 'lucide-react';
 import { useData } from '../../context/DataContext';
 import { useToast } from '../layout/NotificationToast';
@@ -19,11 +24,14 @@ import {
   formatRupiah,
   formatNumberOnly,
   parseNumberFromInput,
+  formatDateID,
   INDO_MONTHS,
   QUARTER_LABELS,
   getMonthsInQuarter,
 } from '../../lib/formatters';
 import type { QuarterlyPlan, QuarterlyPlanItem } from '../../types';
+
+const PLANNING_YEARS = Array.from({ length: 2040 - 2024 + 1 }, (_, i) => 2024 + i);
 
 export function PlanningView() {
   const {
@@ -32,6 +40,7 @@ export function PlanningView() {
     subCategories,
     categories,
     transactionTypes,
+    transactions,
     privacyMode,
     getMonthlyLimitStatusList,
     saveQuarterlyPlan,
@@ -43,12 +52,16 @@ export function PlanningView() {
   const { showToast } = useToast();
 
   // Selected Year & Quarter
-  const [selectedYear, setSelectedYear] = useState<number>(2026);
-  const [selectedQuarter, setSelectedQuarter] = useState<number>(4);
+  const [selectedYear, setSelectedYear] = useState<number>(() => new Date().getFullYear());
+  const [selectedQuarter, setSelectedQuarter] = useState<number>(() => Math.ceil((new Date().getMonth() + 1) / 3));
 
-  // Selected Monitoring Month (Default: First month of the quarter)
+  // Selected Monitoring Month (Default: current month if in quarter, else first month of quarter)
   const quarterMonths = useMemo(() => getMonthsInQuarter(selectedQuarter), [selectedQuarter]);
-  const [monitoringMonth, setMonitoringMonth] = useState<number>(quarterMonths[0]);
+  const [monitoringMonth, setMonitoringMonth] = useState<number>(() => {
+    const currentM = new Date().getMonth() + 1;
+    const qMonths = getMonthsInQuarter(Math.ceil(currentM / 3));
+    return qMonths.includes(currentM) ? currentM : qMonths[0];
+  });
 
   // Keep monitoring month inside selected quarter
   React.useEffect(() => {
@@ -59,6 +72,30 @@ export function PlanningView() {
 
   // Filter "Hanya yang melebihi"
   const [filterOnlyExceeded, setFilterOnlyExceeded] = useState<boolean>(false);
+
+  // Accordion state: set of expanded sub_category_ids
+  const [expandedSubCats, setExpandedSubCats] = useState<Set<string>>(new Set());
+
+  const toggleExpand = (subCatId: string) => {
+    setExpandedSubCats((prev) => {
+      const next = new Set(prev);
+      if (next.has(subCatId)) {
+        next.delete(subCatId);
+      } else {
+        next.add(subCatId);
+      }
+      return next;
+    });
+  };
+
+  const handleToggleExpandAll = () => {
+    if (expandedSubCats.size > 0) {
+      setExpandedSubCats(new Set());
+    } else {
+      const allIds = new Set(expenseSubCategories.map((s) => s.id));
+      setExpandedSubCats(allIds);
+    }
+  };
 
   // Active Plan for this Quarter
   const activePlan = useMemo(() => {
@@ -122,15 +159,14 @@ export function PlanningView() {
   };
 
   // Open item modal for add/edit
-  const handleOpenItemModal = (item?: QuarterlyPlanItem) => {
-    if (item) {
-      setEditingItemId(item.id);
+  const handleOpenItemModal = (item?: QuarterlyPlanItem | { id?: string; plan_id?: string; sub_category_id: string; monthly_limit?: number | null; note?: string | null }) => {
+    if (item && item.sub_category_id) {
+      setEditingItemId(item.id || null);
       setModalSubCatId(item.sub_category_id);
-      setModalLimitDisplay(formatNumberOnly(item.monthly_limit));
+      setModalLimitDisplay(item.monthly_limit ? formatNumberOnly(item.monthly_limit) : '');
       setModalNote(item.note || '');
     } else {
       setEditingItemId(null);
-      // Select first unused subcategory
       const usedIds = new Set(planItems.map((pi) => pi.sub_category_id));
       const firstUnused = expenseSubCategories.find((s) => !usedIds.has(s.id));
       setModalSubCatId(firstUnused ? firstUnused.id : expenseSubCategories[0]?.id || '');
@@ -153,7 +189,6 @@ export function PlanningView() {
       return;
     }
 
-    // Pastikan plan sudah ada
     let planId = activePlan?.id;
     if (!planId) {
       const pRes = await saveQuarterlyPlan({
@@ -206,13 +241,18 @@ export function PlanningView() {
   };
 
   // Monthly Limit Evaluation Status for Monitoring Table
+  const rawMonitoringList = useMemo(() => {
+    return getMonthlyLimitStatusList(selectedYear, monitoringMonth);
+  }, [getMonthlyLimitStatusList, selectedYear, monitoringMonth]);
+
+  // Combined List: Sub Category + Plan Item + Realisasi
   const monitoringList = useMemo(() => {
-    const list = getMonthlyLimitStatusList(selectedYear, monitoringMonth);
+    let list = rawMonitoringList;
     if (filterOnlyExceeded) {
-      return list.filter((i) => i.status === 'melebihi');
+      list = list.filter((i) => i.status === 'melebihi');
     }
     return list;
-  }, [getMonthlyLimitStatusList, selectedYear, monitoringMonth, filterOnlyExceeded]);
+  }, [rawMonitoringList, filterOnlyExceeded]);
 
   // Total limit bulanan per kuartal
   const totalQuarterMonthlyLimit = useMemo(() => {
@@ -228,6 +268,38 @@ export function PlanningView() {
     return total;
   }, [expenseSubCategories, planItems]);
 
+  // Summary Bulan Berjalan
+  const totalMonthSpent = useMemo(() => {
+    return rawMonitoringList.reduce((acc, curr) => acc + (curr.spent || 0), 0);
+  }, [rawMonitoringList]);
+
+  const totalMonthRemaining = useMemo(() => {
+    return totalQuarterMonthlyLimit - totalMonthSpent;
+  }, [totalQuarterMonthlyLimit, totalMonthSpent]);
+
+  // Transaksi Terfilter berdasarkan bulan & tahun yang dipilih
+  const monthPrefix = useMemo(() => {
+    const mStr = String(monitoringMonth).padStart(2, '0');
+    return `${selectedYear}-${mStr}`;
+  }, [selectedYear, monitoringMonth]);
+
+  // Pre-index transaksi pengeluaran per sub_category_id
+  const txMapBySubCategory = useMemo(() => {
+    const map = new Map<string, typeof transactions>();
+    for (const tx of transactions) {
+      if (tx.type_kind === 'expense' && tx.tx_date.startsWith(monthPrefix) && tx.sub_category_id) {
+        const list = map.get(tx.sub_category_id) || [];
+        list.push(tx);
+        map.set(tx.sub_category_id, list);
+      }
+    }
+    // Urutkan transaksi tanggal terbaru di atas
+    for (const [, list] of map.entries()) {
+      list.sort((a, b) => b.tx_date.localeCompare(a.tx_date));
+    }
+    return map;
+  }, [transactions, monthPrefix]);
+
   return (
     <div className="w-full max-w-[1680px] mx-auto px-2.5 sm:px-4 lg:px-6 py-4 space-y-4">
       {/* HEADER SECTION */}
@@ -237,24 +309,24 @@ export function PlanningView() {
             <div className="flex items-center gap-2">
               <CalendarRange className="w-5 h-5 text-[#1E6B4F]" />
               <h1 className="text-xl font-bold text-slate-900 tracking-tight">
-                Perencanaan Kuartal & Limit Anggaran
+                Perencanaan & Monitoring Realisasi Anggaran
               </h1>
             </div>
             <p className="text-xs text-slate-500 mt-0.5">
-              Tetapkan batas wajar pengeluaran bulanan per sub kategori sebagai panduan keluarga.
+              Atur batas wajar pengeluaran bulanan dan pantau realisasi transaksi aktual keluarga per kuartal.
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             {/* Year Selector */}
             <select
               value={selectedYear}
               onChange={(e) => setSelectedYear(Number(e.target.value))}
               className="px-3 py-2 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1E6B4F]"
             >
-              {[2024, 2025, 2026, 2027].map((yr) => (
+              {PLANNING_YEARS.map((yr) => (
                 <option key={yr} value={yr}>
-                  {yr}
+                  Tahun {yr}
                 </option>
               ))}
             </select>
@@ -270,12 +342,12 @@ export function PlanningView() {
         </div>
 
         {/* QUARTER TABS (Q1, Q2, Q3, Q4) */}
-        <div className="grid grid-cols-4 gap-2 pt-2">
+        <div className="grid grid-cols-4 gap-2 pt-1">
           {[1, 2, 3, 4].map((q) => (
             <button
               key={q}
               onClick={() => setSelectedQuarter(q)}
-              className={`py-2.5 px-3 rounded-xl border text-xs font-bold transition-all text-center ${
+              className={`py-2.5 px-3 rounded-xl border text-xs font-bold transition-all text-center cursor-pointer ${
                 selectedQuarter === q
                   ? 'border-[#1E6B4F] bg-[#1E6B4F] text-white shadow-xs'
                   : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
@@ -285,216 +357,147 @@ export function PlanningView() {
             </button>
           ))}
         </div>
-      </div>
 
-      {/* PLAN HEADER & SUMMARY */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Title and Notes */}
-        <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-bold text-slate-900">
-              Detail Rencana: {QUARTER_LABELS[selectedQuarter]} {selectedYear}
-            </h2>
-            <button
-              onClick={() => setEditingPlanHeader(!editingPlanHeader)}
-              className="text-xs font-semibold text-[#1E6B4F] hover:underline"
-            >
-              {editingPlanHeader ? 'Batal' : 'Ubah Judul & Catatan'}
-            </button>
-          </div>
-
-          {editingPlanHeader ? (
-            <form onSubmit={handleSavePlanHeader} className="space-y-3 pt-2">
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                  Judul Rencana Kuartal
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={planTitle}
-                  onChange={(e) => setPlanTitle(e.target.value)}
-                  placeholder="Contoh: Q4 2026 - Persiapan Kelahiran"
-                  className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1E6B4F]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                  Catatan & Prioritas Kuartal Ini
-                </label>
-                <textarea
-                  rows={2}
-                  value={planNotes}
-                  onChange={(e) => setPlanNotes(e.target.value)}
-                  placeholder="Contoh: Fokus alokasi tabungan persalinan dan kendalikan pengeluaran makan di luar..."
-                  className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1E6B4F]"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-1">
-                <button
-                  type="submit"
-                  className="px-4 py-2 text-xs font-bold text-white bg-[#1E6B4F] hover:bg-[#16523c] rounded-xl shadow-xs"
-                >
-                  Simpan Detail Kuartal
-                </button>
-              </div>
-            </form>
-          ) : (
-            <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 space-y-1">
-              <h3 className="font-bold text-slate-800 text-sm">
-                {activePlan?.title || `Q${selectedQuarter} ${selectedYear}`}
-              </h3>
-              <p className="text-xs text-slate-500 leading-relaxed">
-                {activePlan?.notes || 'Belum ada catatan khusus untuk kuartal ini.'}
-              </p>
+        {/* INFORMASI DIBAWAH SECTION TAB Q1, Q2, Q3, Q4 */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 pt-4 border-t border-slate-100">
+          {/* Title and Notes */}
+          <div className="lg:col-span-2 bg-slate-50/70 rounded-xl border border-slate-200/80 p-4 sm:p-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-bold text-slate-900">
+                Detail Rencana: {QUARTER_LABELS[selectedQuarter]} {selectedYear}
+              </h2>
+              <button
+                onClick={() => setEditingPlanHeader(!editingPlanHeader)}
+                className="text-xs font-semibold text-[#1E6B4F] hover:underline cursor-pointer"
+              >
+                {editingPlanHeader ? 'Batal' : 'Ubah Judul & Catatan'}
+              </button>
             </div>
-          )}
-        </div>
 
-        {/* Total Monthly Limit per Quarter */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs flex flex-col justify-between">
-          <div>
-            <span className="text-xs font-semibold text-slate-500">
-              Total Limit Bulanan ({QUARTER_LABELS[selectedQuarter]})
-            </span>
-            <div className="text-2xl font-extrabold text-[#1E6B4F] mt-2 tabular-nums">
-              {formatRupiah(totalQuarterMonthlyLimit, privacyMode)}
+            {editingPlanHeader ? (
+              <form onSubmit={handleSavePlanHeader} className="space-y-3 pt-1">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                    Judul Rencana Kuartal
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={planTitle}
+                    onChange={(e) => setPlanTitle(e.target.value)}
+                    placeholder="Contoh: Q4 2026 - Persiapan Kelahiran & Akhir Tahun"
+                    className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1E6B4F]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                    Catatan & Prioritas Kuartal Ini
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={planNotes}
+                    onChange={(e) => setPlanNotes(e.target.value)}
+                    placeholder="Contoh: Fokus alokasi tabungan dan kendalikan pengeluaran jajan..."
+                    className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1E6B4F]"
+                  />
+                </div>
+
+                <div className="flex justify-end gap-2 pt-1">
+                  <button
+                    type="submit"
+                    className="px-4 py-2 text-xs font-bold text-white bg-[#1E6B4F] hover:bg-[#16523c] rounded-xl shadow-xs cursor-pointer"
+                  >
+                    Simpan Detail Kuartal
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <div className="p-3.5 rounded-xl bg-white border border-slate-200/70 space-y-1">
+                <h3 className="font-bold text-slate-800 text-sm">
+                  {activePlan?.title || `Q${selectedQuarter} ${selectedYear}`}
+                </h3>
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  {activePlan?.notes || 'Belum ada catatan khusus untuk kuartal ini.'}
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Quick Month Metrics Card */}
+          <div className="bg-slate-50/70 rounded-xl border border-slate-200/80 p-4 sm:p-5 flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                  Ringkasan Bulan Ini
+                </span>
+                <span className="text-xs font-bold text-[#1E6B4F] bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                  {INDO_MONTHS[monitoringMonth - 1]} {selectedYear}
+                </span>
+              </div>
+
+              <div className="mt-3 space-y-2">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-slate-500">Total Limit Bulanan:</span>
+                  <span className="font-bold text-slate-800 tabular-nums">
+                    {formatRupiah(totalQuarterMonthlyLimit, privacyMode)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-slate-500">Realisasi Pengeluaran:</span>
+                  <span className="font-bold text-slate-900 tabular-nums">
+                    {formatRupiah(totalMonthSpent, privacyMode)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-xs pt-1 border-t border-slate-200/70">
+                  <span className="font-semibold text-slate-600">Sisa Anggaran:</span>
+                  <span
+                    className={`font-extrabold tabular-nums ${
+                      totalMonthRemaining < 0 ? 'text-rose-600' : 'text-[#1E6B4F]'
+                    }`}
+                  >
+                    {formatRupiah(totalMonthRemaining, privacyMode)}
+                  </span>
+                </div>
+              </div>
             </div>
-            <p className="text-xs text-slate-400 mt-1">
-              Akumulasi batas anggaran semua sub kategori per bulan dalam kuartal ini.
-            </p>
-          </div>
 
-          <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-            <span className="text-slate-500">Item Terkonfigurasi:</span>
-            <span className="font-bold text-slate-900">{planItems.length} dari {expenseSubCategories.length}</span>
+            <div className="pt-3 mt-3 border-t border-slate-200/70 flex items-center justify-between text-[11px] text-slate-400">
+              <span>Item Rencana Aktif:</span>
+              <span className="font-bold text-slate-700">
+                {planItems.length} dari {expenseSubCategories.length} sub kategori
+              </span>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* ITEMS RENCANA PER SUB KATEGORI */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-4">
-        <div className="flex items-center justify-between">
+      {/* TABEL GABUNGAN: PERENCANAAN, EVALUASI & AKORDION TRANSAKSI */}
+      <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-2xs space-y-4">
+        {/* Toolbar Tabel */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-slate-100">
           <div>
-            <h2 className="text-sm font-bold text-slate-900">
-              Item Rencana Limit Bulanan (Kuartal {selectedQuarter} {selectedYear})
+            <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+              <span>Evaluasi & Realisasi Anggaran per Sub Kategori</span>
+              <span className="text-xs px-2 py-0.5 font-semibold bg-emerald-50 text-[#1E6B4F] rounded-full border border-emerald-200">
+                {INDO_MONTHS[monitoringMonth - 1]} {selectedYear}
+              </span>
             </h2>
-            <p className="text-xs text-slate-500">
-              Berlaku sama untuk 3 bulan dalam kuartal ini. Sub kategori tanpa item akan memakai limit default.
+            <p className="text-xs text-slate-500 mt-0.5">
+              Klik pada baris mana saja untuk membuka rincian transaksi belanja yang tercatat pada bulan ini.
             </p>
           </div>
 
-          <button
-            onClick={() => handleOpenItemModal()}
-            className="px-3.5 py-2 text-xs font-bold text-white bg-[#1E6B4F] hover:bg-[#16523c] rounded-xl flex items-center gap-1.5 shadow-xs"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Tambah Item Limit</span>
-          </button>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs">
-            <thead>
-              <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold">
-                <th className="py-3 px-4">Sub Kategori</th>
-                <th className="py-3 px-4">Kategori</th>
-                <th className="py-3 px-4 text-right">Limit Bulanan</th>
-                <th className="py-3 px-4">Sumber Limit</th>
-                <th className="py-3 px-4">Catatan</th>
-                <th className="py-3 px-4 text-center">Aksi</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {expenseSubCategories.map((sub) => {
-                const item = planItems.find((pi) => pi.sub_category_id === sub.id);
-                const cat = categories.find((c) => c.id === sub.category_id);
-                const effectiveLimit = item ? item.monthly_limit : sub.default_limit;
-                const isCustom = !!item;
-
-                return (
-                  <tr key={sub.id} className="hover:bg-slate-50/70">
-                    <td className="py-3 px-4 font-semibold text-slate-800">
-                      {sub.name}
-                    </td>
-                    <td className="py-3 px-4 text-slate-500">
-                      {cat?.name || '-'}
-                    </td>
-                    <td className="py-3 px-4 text-right font-bold text-slate-900 tabular-nums">
-                      {effectiveLimit !== null && effectiveLimit !== undefined
-                        ? formatRupiah(effectiveLimit, privacyMode)
-                        : 'Tanpa Limit'}
-                    </td>
-                    <td className="py-3 px-4">
-                      {isCustom ? (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
-                          Rencana Q{selectedQuarter}
-                        </span>
-                      ) : sub.default_limit ? (
-                        <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
-                          Default Master
-                        </span>
-                      ) : (
-                        <span className="text-[10px] text-slate-400">
-                          Bebas Limit
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-3 px-4 text-slate-500 max-w-xs truncate">
-                      {item?.note || '-'}
-                    </td>
-                    <td className="py-3 px-4 text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        <button
-                          onClick={() => handleOpenItemModal(item || { id: '', plan_id: '', sub_category_id: sub.id, monthly_limit: sub.default_limit || 0 })}
-                          title="Ubah Limit"
-                          className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                        >
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
-                        {item && (
-                          <button
-                            onClick={() => handleDeleteItem(item.id)}
-                            title="Hapus Rencana (Kembalikan ke Default)"
-                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* TABEL MONITORING BULANAN */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <h2 className="text-sm font-bold text-slate-900">
-              Evaluasi & Monitoring Realisasi Bulanan
-            </h2>
-            <p className="text-xs text-slate-500">
-              Perbandingan realisasi pengeluaran terhadap limit pada bulan yang dipilih.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
             {/* Filter Bulan Dalam Kuartal */}
             <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
               {quarterMonths.map((m) => (
                 <button
                   key={m}
                   onClick={() => setMonitoringMonth(m)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                     monitoringMonth === m
-                      ? 'bg-white text-slate-900 shadow-xs'
+                      ? 'bg-white text-[#1E6B4F] font-bold shadow-xs'
                       : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
@@ -504,33 +507,73 @@ export function PlanningView() {
             </div>
 
             {/* Toggle Hanya Melebihi */}
-            <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 cursor-pointer select-none">
+            <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 cursor-pointer select-none bg-slate-50 border border-slate-200 px-2.5 py-1.5 rounded-xl hover:bg-slate-100/80">
               <input
                 type="checkbox"
                 checked={filterOnlyExceeded}
                 onChange={(e) => setFilterOnlyExceeded(e.target.checked)}
                 className="rounded text-[#1E6B4F] focus:ring-[#1E6B4F]"
               />
-              <span>Hanya yang Melebihi</span>
+              <span>Hanya Melebihi</span>
             </label>
+
+            {/* Tombol Tambah Limit */}
+            <button
+              onClick={() => handleOpenItemModal()}
+              className="px-3 py-1.5 text-xs font-bold text-white bg-[#1E6B4F] hover:bg-[#16523c] rounded-xl flex items-center gap-1.5 shadow-xs cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Atur Limit</span>
+            </button>
+
+            {/* Tombol Buka / Tutup Semua Accordion */}
+            <button
+              onClick={handleToggleExpandAll}
+              className="px-2.5 py-1.5 text-xs font-semibold text-slate-600 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-colors cursor-pointer"
+              title="Buka atau tutup seluruh daftar transaksi"
+            >
+              {expandedSubCats.size > 0 ? 'Tutup Semua Transaksi' : 'Buka Semua Transaksi'}
+            </button>
           </div>
         </div>
 
+        {/* Tabel Terpadu */}
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold">
-                <th className="py-3 px-4">Sub Kategori</th>
-                <th className="py-3 px-4 text-right">Limit Bulanan</th>
-                <th className="py-3 px-4 text-right">Realisasi Pengeluaran</th>
-                <th className="py-3 px-4 text-right">Sisa / Selisih</th>
-                <th className="py-3 px-4" style={{ width: '180px' }}>Progress Pemakaian</th>
-                <th className="py-3 px-4 text-center">Status</th>
+                <th className="py-3 px-4" style={{ width: '280px' }}>
+                  Sub Kategori & Kategori
+                </th>
+                <th className="py-3 px-4 text-right" style={{ width: '160px' }}>
+                  Limit Bulanan
+                </th>
+                <th className="py-3 px-4 text-right" style={{ width: '160px' }}>
+                  Realisasi ({INDO_MONTHS[monitoringMonth - 1]})
+                </th>
+                <th className="py-3 px-4 text-right" style={{ width: '140px' }}>
+                  Sisa / Selisih
+                </th>
+                <th className="py-3 px-4" style={{ width: '160px' }}>
+                  Progress Pemakaian
+                </th>
+                <th className="py-3 px-4 text-center" style={{ width: '130px' }}>
+                  Status
+                </th>
+                <th className="py-3 px-4 text-center" style={{ width: '110px' }}>
+                  Aksi
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {monitoringList.length > 0 ? (
                 monitoringList.map((item) => {
+                  const sub = expenseSubCategories.find((s) => s.id === item.sub_category_id);
+                  const planItem = planItems.find((pi) => pi.sub_category_id === item.sub_category_id);
+                  const cat = categories.find((c) => c.id === sub?.category_id);
+                  const isExpanded = expandedSubCats.has(item.sub_category_id);
+                  const subTxs = txMapBySubCategory.get(item.sub_category_id) || [];
+
                   let statusBadge = (
                     <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
                       Tanpa Limit
@@ -541,7 +584,7 @@ export function PlanningView() {
                   if (item.status === 'melebihi') {
                     statusBadge = (
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-1 justify-center">
-                        <AlertTriangle className="w-3 h-3 text-rose-600" />
+                        <AlertTriangle className="w-3 h-3 text-rose-600 shrink-0" />
                         <span>Melebihi Limit</span>
                       </span>
                     );
@@ -549,7 +592,7 @@ export function PlanningView() {
                   } else if (item.status === 'mendekati') {
                     statusBadge = (
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
-                        Mendekati (≥80%)
+                        Mendekati (&ge;80%)
                       </span>
                     );
                     barColor = 'bg-amber-500';
@@ -563,56 +606,273 @@ export function PlanningView() {
                   }
 
                   const pct = item.percentage ?? 0;
+                  const isCustomPlan = !!planItem;
 
                   return (
-                    <tr key={item.sub_category_id} className="hover:bg-slate-50/70">
-                      <td className="py-3 px-4 font-semibold text-slate-800">
-                        {item.sub_category_name}
-                      </td>
-                      <td className="py-3 px-4 text-right font-medium text-slate-700 tabular-nums">
-                        {item.monthly_limit !== null ? formatRupiah(item.monthly_limit, privacyMode) : '-'}
-                      </td>
-                      <td className="py-3 px-4 text-right font-bold text-slate-900 tabular-nums">
-                        {formatRupiah(item.spent, privacyMode)}
-                      </td>
-                      <td
-                        className={`py-3 px-4 text-right font-bold tabular-nums ${
-                          (item.remaining || 0) < 0 ? 'text-rose-600' : 'text-[#1E6B4F]'
+                    <React.Fragment key={item.sub_category_id}>
+                      {/* Baris Utama Item */}
+                      <tr
+                        className={`transition-colors cursor-pointer ${
+                          isExpanded ? 'bg-emerald-50/40' : 'hover:bg-slate-50/70'
                         }`}
+                        onClick={() => toggleExpand(item.sub_category_id)}
                       >
-                        {item.monthly_limit !== null
-                          ? (item.remaining || 0) < 0
-                            ? `-Rp${formatRupiah(Math.abs(item.remaining || 0), privacyMode).replace('Rp', '')}`
-                            : formatRupiah(item.remaining, privacyMode)
-                          : '-'}
-                      </td>
-                      <td className="py-3 px-4">
-                        {item.monthly_limit !== null ? (
-                          <div className="space-y-1">
-                            <div className="w-full h-2 rounded-full bg-slate-200 overflow-hidden">
-                              <div
-                                className={`h-full rounded-full transition-all duration-300 ${barColor}`}
-                                style={{ width: `${Math.min(100, pct)}%` }}
-                              />
-                            </div>
-                            <div className="text-[10px] text-slate-400 text-right tabular-nums">
-                              {pct}%
+                        {/* Kolom 1: Sub Kategori + Accordion Toggle */}
+                        <td className="py-3 px-4">
+                          <div className="flex items-start gap-2.5">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleExpand(item.sub_category_id);
+                              }}
+                              className="p-1 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-200/50 mt-0.5 transition-colors cursor-pointer"
+                              title={isExpanded ? 'Tutup rincian transaksi' : 'Buka rincian transaksi'}
+                            >
+                              {isExpanded ? (
+                                <ChevronUp className="w-4 h-4 text-[#1E6B4F]" />
+                              ) : (
+                                <ChevronDown className="w-4 h-4" />
+                              )}
+                            </button>
+                            <div className="min-w-0">
+                              <div className="font-bold text-slate-900 flex items-center gap-1.5 flex-wrap">
+                                <span>{item.sub_category_name}</span>
+                                {cat && (
+                                  <span className="text-[10px] font-medium text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                                    {cat.name}
+                                  </span>
+                                )}
+                              </div>
+                              {planItem?.note && (
+                                <p className="text-[11px] text-slate-400 italic mt-0.5 truncate max-w-xs">
+                                  {planItem.note}
+                                </p>
+                              )}
                             </div>
                           </div>
-                        ) : (
-                          <span className="text-slate-400 text-[11px]">-</span>
-                        )}
-                      </td>
-                      <td className="py-3 px-4 text-center">
-                        {statusBadge}
-                      </td>
-                    </tr>
+                        </td>
+
+                        {/* Kolom 2: Limit Bulanan + Sumber */}
+                        <td className="py-3 px-4 text-right">
+                          <div className="font-bold text-slate-900 tabular-nums">
+                            {item.monthly_limit !== null
+                              ? formatRupiah(item.monthly_limit, privacyMode)
+                              : 'Tanpa Limit'}
+                          </div>
+                          <div className="mt-0.5">
+                            {isCustomPlan ? (
+                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                Rencana Q{selectedQuarter}
+                              </span>
+                            ) : sub?.default_limit ? (
+                              <span className="text-[9px] font-medium px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                                Default Master
+                              </span>
+                            ) : (
+                              <span className="text-[9px] text-slate-400">Bebas</span>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* Kolom 3: Realisasi Pengeluaran */}
+                        <td className="py-3 px-4 text-right">
+                          <div className="font-extrabold text-slate-900 tabular-nums">
+                            {formatRupiah(item.spent, privacyMode)}
+                          </div>
+                          <div className="text-[10px] text-slate-400 mt-0.5 flex items-center justify-end gap-1">
+                            <ReceiptText className="w-3 h-3" />
+                            <span>{subTxs.length} transaksi</span>
+                          </div>
+                        </td>
+
+                        {/* Kolom 4: Sisa / Selisih */}
+                        <td
+                          className={`py-3 px-4 text-right font-bold tabular-nums ${
+                            (item.remaining || 0) < 0 ? 'text-rose-600' : 'text-[#1E6B4F]'
+                          }`}
+                        >
+                          {item.monthly_limit !== null
+                            ? (item.remaining || 0) < 0
+                              ? `-Rp${formatRupiah(Math.abs(item.remaining || 0), privacyMode).replace('Rp', '')}`
+                              : formatRupiah(item.remaining, privacyMode)
+                            : '-'}
+                        </td>
+
+                        {/* Kolom 5: Progress Pemakaian */}
+                        <td className="py-3 px-4">
+                          {item.monthly_limit !== null ? (
+                            <div className="space-y-1">
+                              <div className="w-full h-2 rounded-full bg-slate-200 overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full transition-all duration-300 ${barColor}`}
+                                  style={{ width: `${Math.min(100, pct)}%` }}
+                                />
+                              </div>
+                              <div className="text-[10px] text-slate-400 text-right tabular-nums">
+                                {pct}%
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-slate-400 text-[11px]">-</span>
+                          )}
+                        </td>
+
+                        {/* Kolom 6: Status */}
+                        <td className="py-3 px-4 text-center">
+                          {statusBadge}
+                        </td>
+
+                        {/* Kolom 7: Aksi */}
+                        <td className="py-3 px-4 text-center" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center justify-center gap-1">
+                            {/* Tombol Ubah Limit */}
+                            <button
+                              onClick={() =>
+                                handleOpenItemModal(
+                                  planItem || {
+                                    id: '',
+                                    plan_id: '',
+                                    sub_category_id: item.sub_category_id,
+                                    monthly_limit: item.monthly_limit || sub?.default_limit || 0,
+                                    note: '',
+                                  }
+                                )
+                              }
+                              title="Ubah Limit Anggaran"
+                              className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+
+                            {/* Tombol Hapus Custom Plan jika ada */}
+                            {planItem && (
+                              <button
+                                onClick={() => handleDeleteItem(planItem.id)}
+                                title="Kembalikan ke Limit Default Master"
+                                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+
+                            {/* Tombol Accordion */}
+                            <button
+                              onClick={() => toggleExpand(item.sub_category_id)}
+                              title={isExpanded ? 'Tutup Transaksi' : 'Lihat Transaksi'}
+                              className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                                isExpanded
+                                  ? 'bg-[#1E6B4F] text-white shadow-2xs'
+                                  : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'
+                              }`}
+                            >
+                              <ReceiptText className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+
+                      {/* Baris Accordion: Rincian Transaksi */}
+                      {isExpanded && (
+                        <tr className="bg-slate-50/70 border-b border-slate-200">
+                          <td colSpan={7} className="p-3 sm:p-4">
+                            <div className="bg-white rounded-xl border border-slate-200/80 shadow-xs p-4 space-y-3">
+                              {/* Header Accordion */}
+                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-slate-100">
+                                <div className="flex items-center gap-2">
+                                  <div className="p-1.5 rounded-lg bg-emerald-50 text-[#1E6B4F]">
+                                    <ReceiptText className="w-4 h-4" />
+                                  </div>
+                                  <div>
+                                    <h4 className="font-bold text-xs text-slate-900">
+                                      Mutasi Transaksi: {item.sub_category_name}
+                                    </h4>
+                                    <p className="text-[11px] text-slate-400">
+                                      Periode {INDO_MONTHS[monitoringMonth - 1]} {selectedYear}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-2 text-xs">
+                                  <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 font-semibold text-[11px]">
+                                    {subTxs.length} Transaksi
+                                  </span>
+                                  <span className="font-extrabold text-slate-900 bg-rose-50 text-rose-800 border border-rose-200 px-2.5 py-0.5 rounded-full text-[11px]">
+                                    Total: {formatRupiah(item.spent, privacyMode)}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Tabel / List Transaksi */}
+                              {subTxs.length > 0 ? (
+                                <div className="overflow-x-auto">
+                                  <table className="w-full text-left border-collapse text-xs">
+                                    <thead>
+                                      <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold text-[11px]">
+                                        <th className="py-2 px-3" style={{ width: '120px' }}>
+                                          Tanggal
+                                        </th>
+                                        <th className="py-2 px-3" style={{ width: '220px' }}>
+                                          Sumber Saldo &rarr; Tujuan
+                                        </th>
+                                        <th className="py-2 px-3 text-right" style={{ width: '140px' }}>
+                                          Nominal
+                                        </th>
+                                        <th className="py-2 px-3">
+                                          Keterangan
+                                        </th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                      {subTxs.map((tx) => (
+                                        <tr key={tx.id} className="hover:bg-slate-50/80">
+                                          <td className="py-2.5 px-3 font-medium text-slate-700 whitespace-nowrap">
+                                            {formatDateID(tx.tx_date)}
+                                          </td>
+                                          <td className="py-2.5 px-3">
+                                            <div className="flex items-center gap-1.5 text-slate-800">
+                                              <span className="font-semibold text-slate-900">
+                                                {tx.source_name || 'Kas/Bank'}
+                                              </span>
+                                              <ArrowRight className="w-3 h-3 text-slate-400 shrink-0" />
+                                              <span className="text-slate-600">
+                                                {tx.destination_name || 'Merchant'}
+                                              </span>
+                                            </div>
+                                          </td>
+                                          <td className="py-2.5 px-3 text-right font-bold text-rose-600 tabular-nums whitespace-nowrap">
+                                            -{formatRupiah(tx.amount, privacyMode)}
+                                          </td>
+                                          <td className="py-2.5 px-3 text-slate-600">
+                                            {tx.description || '-'}
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              ) : (
+                                <div className="py-6 text-center text-xs text-slate-400 bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
+                                  Belum ada transaksi pengeluaran untuk sub kategori ini pada bulan {INDO_MONTHS[monitoringMonth - 1]} {selectedYear}.
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
                   );
                 })
               ) : (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-xs text-slate-400">
-                    Tidak ada sub kategori yang melebihi limit.
+                  <td colSpan={7} className="py-12 text-center text-xs text-slate-400">
+                    <div className="flex flex-col items-center justify-center gap-1.5">
+                      <CheckCircle className="w-6 h-6 text-emerald-500 mb-1" />
+                      <span className="font-semibold text-slate-700">
+                        Semua pengeluaran terkendali dengan baik!
+                      </span>
+                      <span>Tidak ada sub kategori yang melebihi batas limit bulanan.</span>
+                    </div>
                   </td>
                 </tr>
               )}
@@ -627,11 +887,11 @@ export function PlanningView() {
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-100">
             <div className="flex items-center justify-between pb-4 border-b border-slate-100">
               <h3 className="font-bold text-slate-900 text-base">
-                {editingItemId ? 'Ubah Item Limit Anggaran' : 'Tetapkan Limit Anggaran'}
+                {editingItemId ? 'Ubah Limit Anggaran' : 'Atur Limit Anggaran'}
               </h3>
               <button
                 onClick={() => setItemModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg"
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -674,7 +934,7 @@ export function PlanningView() {
                   />
                 </div>
                 <p className="text-[11px] text-slate-400 mt-1">
-                  Berlaku selama 3 bulan di Q{selectedQuarter} {selectedYear}.
+                  Batas ini berlaku untuk setiap bulan di Kuartal {selectedQuarter} {selectedYear}.
                 </p>
               </div>
 
@@ -695,13 +955,13 @@ export function PlanningView() {
                 <button
                   type="button"
                   onClick={() => setItemModalOpen(false)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl"
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl cursor-pointer"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 text-xs font-bold text-white bg-[#1E6B4F] hover:bg-[#16523c] rounded-xl shadow-xs"
+                  className="px-5 py-2 text-xs font-bold text-white bg-[#1E6B4F] hover:bg-[#16523c] rounded-xl shadow-xs cursor-pointer"
                 >
                   Simpan Item
                 </button>

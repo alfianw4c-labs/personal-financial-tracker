@@ -648,88 +648,76 @@ export function TransactionListView() {
         </div>
       </div>
 
-      {/* SECTION DASHBOARD INFO SALDO TIAP REKENING (Sesuai Permintaan) */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-2xs space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-emerald-50 text-[#1E6B4F] flex items-center justify-center">
-              <Wallet className="w-4 h-4" />
-            </div>
-            <div>
-              <h2 className="text-sm font-bold text-slate-900 leading-tight">
-                Dashboard Saldo Rekening & Dompet
-              </h2>
-              <p className="text-[11px] text-slate-500">
-                Klik kartu akun untuk langsung menyaring mutasi transaksi akun tersebut.
-              </p>
-            </div>
+      {/* SECTION DASHBOARD INFO SALDO TIAP REKENING (Simplified 2-Baris) */}
+      <div className="bg-white rounded-2xl border border-slate-200 p-3 sm:p-3.5 shadow-2xs space-y-2.5">
+        {/* BARIS 1: FILTER TAB (KIRI) & RINGKASAN SALDO PILLS (KANAN) */}
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
+          {/* Group Tabs Filter */}
+          <div className="flex items-center gap-1 overflow-x-auto text-xs py-0.5 shrink-0">
+            {[
+              { id: 'all', label: `Semua (${accounts.filter((a) => a.is_active).length})` },
+              { id: 'bank', label: 'Bank' },
+              { id: 'cash', label: 'Tunai' },
+              { id: 'tabungan', label: 'Tabungan' },
+              { id: 'paylater', label: 'PayLater' },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setAccountGroupTab(tab.id as any)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
+                  accountGroupTab === tab.id
+                    ? 'bg-slate-900 text-white shadow-xs'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
           </div>
 
           {/* Quick Summary Numbers */}
-          <div className="flex flex-wrap items-center gap-2 text-xs">
-            <div className="px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-100">
-              <span className="text-[10px] text-emerald-700 font-semibold block">Kas & Bank</span>
-              <span className="font-bold text-[#1E6B4F] tabular-nums">
+          <div className="flex flex-wrap items-center gap-1.5 text-xs">
+            <div className="px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center gap-1.5">
+              <span className="text-[10px] text-emerald-700 font-medium">Kas & Bank:</span>
+              <span className="font-bold text-[#1E6B4F] tabular-nums text-xs">
                 {formatRupiah(accountStats.totalCashBank, privacyMode)}
               </span>
             </div>
-            <div className="px-3 py-1.5 rounded-xl bg-blue-50 border border-blue-100">
-              <span className="text-[10px] text-blue-700 font-semibold block">Total Tabungan</span>
-              <span className="font-bold text-blue-700 tabular-nums">
+            <div className="px-2.5 py-1 rounded-lg bg-blue-50 border border-blue-200 flex items-center gap-1.5">
+              <span className="text-[10px] text-blue-700 font-medium">Tabungan:</span>
+              <span className="font-bold text-blue-700 tabular-nums text-xs">
                 {formatRupiah(accountStats.totalTabungan, privacyMode)}
               </span>
             </div>
             {accountStats.totalPaylater > 0 && (
-              <div className="px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-100">
-                <span className="text-[10px] text-amber-700 font-semibold block">PayLater/Hutang</span>
-                <span className="font-bold text-amber-700 tabular-nums">
+              <div className="px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-200 flex items-center gap-1.5">
+                <span className="text-[10px] text-amber-700 font-medium">PayLater:</span>
+                <span className="font-bold text-amber-700 tabular-nums text-xs">
                   {formatRupiah(accountStats.totalPaylater, privacyMode)}
                 </span>
               </div>
             )}
-            <div className="px-3 py-1.5 rounded-xl bg-slate-100 border border-slate-200">
-              <span className="text-[10px] text-slate-600 font-semibold block">Saldo Bersih</span>
-              <span className="font-bold text-slate-900 tabular-nums">
+            <div className="px-2.5 py-1 rounded-lg bg-slate-100 border border-slate-200 flex items-center gap-1.5">
+              <span className="text-[10px] text-slate-600 font-medium">Saldo Bersih:</span>
+              <span className="font-bold text-slate-900 tabular-nums text-xs">
                 {formatRupiah(accountStats.netBalance, privacyMode)}
               </span>
             </div>
             {selectedDashboardAccount && (
               <button
                 onClick={() => setSelectedDashboardAccount(null)}
-                className="px-2.5 py-1 text-[11px] text-rose-600 bg-rose-50 border border-rose-200 rounded-lg hover:bg-rose-100 flex items-center gap-1 font-semibold transition-colors"
+                className="px-2 py-1 text-[11px] text-rose-600 bg-rose-50 border border-rose-200 rounded-lg hover:bg-rose-100 flex items-center gap-1 font-semibold transition-colors cursor-pointer"
+                title="Batalkan filter akun"
               >
                 <X className="w-3 h-3" />
-                <span>Hapus Filter Akun</span>
+                <span>Hapus Filter</span>
               </button>
             )}
           </div>
         </div>
 
-        {/* Group Tabs Filter */}
-        <div className="flex items-center gap-1 overflow-x-auto pb-1 text-xs">
-          {[
-            { id: 'all', label: `Semua Akun (${accounts.filter((a) => a.is_active).length})` },
-            { id: 'bank', label: 'Bank' },
-            { id: 'cash', label: 'Tunai / Kas' },
-            { id: 'tabungan', label: 'Tabungan' },
-            { id: 'paylater', label: 'PayLater / CC' },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setAccountGroupTab(tab.id as any)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${
-                accountGroupTab === tab.id
-                  ? 'bg-slate-900 text-white shadow-xs'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Account Cards Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 pt-1">
+        {/* BARIS 2: ACCOUNT CARDS GRID (RINGKAS & HEMAT SPACE) */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
           {displayedAccounts.map((acc) => {
             const isSelected = selectedDashboardAccount === acc.id;
             let groupBadge = 'Kas';
@@ -761,25 +749,25 @@ export function TransactionListView() {
                   }
                   setCurrentPage(1);
                 }}
-                className={`p-3 rounded-xl border text-left transition-all flex flex-col justify-between ${
+                className={`px-3 py-2 rounded-xl border text-left transition-all flex flex-col justify-between cursor-pointer ${
                   isSelected
-                    ? 'border-[#1E6B4F] bg-emerald-50/70 ring-2 ring-[#1E6B4F]/20 shadow-xs'
-                    : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/50'
+                    ? 'border-[#1E6B4F] bg-emerald-50/80 ring-2 ring-[#1E6B4F]/25 shadow-xs'
+                    : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/70 shadow-2xs'
                 }`}
               >
-                <div className="flex items-start justify-between gap-1 w-full">
-                  <div className="min-w-0">
-                    <span className="font-bold text-slate-900 text-xs block truncate" title={acc.name}>
+                <div className="flex items-center justify-between gap-1 w-full">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <Icon className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                    <span className="font-bold text-slate-900 text-xs truncate" title={acc.name}>
                       {acc.name}
                     </span>
-                    <span className="text-[10px] text-slate-400 block truncate">
-                      {acc.owner_label ? `Milik: ${acc.owner_label}` : acc.purpose || '-'}
-                    </span>
                   </div>
-                  <Icon className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
+                  <span className={`text-[9px] px-1 py-0.2 rounded font-semibold border shrink-0 ${groupColor}`}>
+                    {groupBadge}
+                  </span>
                 </div>
 
-                <div className="mt-2.5 pt-1.5 border-t border-slate-100 flex items-center justify-between w-full">
+                <div className="mt-1 flex items-baseline justify-between w-full">
                   <span
                     className={`text-xs font-extrabold tabular-nums truncate ${
                       acc.group_type === 'paylater'
@@ -791,9 +779,11 @@ export function TransactionListView() {
                   >
                     {formatRupiah(acc.current_balance, privacyMode)}
                   </span>
-                  <span className={`text-[9px] px-1.5 py-0.2 rounded font-semibold border ${groupColor}`}>
-                    {groupBadge}
-                  </span>
+                  {acc.owner_label && (
+                    <span className="text-[10px] text-slate-400 truncate ml-1 font-medium">
+                      {acc.owner_label}
+                    </span>
+                  )}
                 </div>
               </button>
             );
@@ -802,9 +792,9 @@ export function TransactionListView() {
       </div>
 
       {/* TRANSACTIONS TABLE DENGAN FILTER DI SETIAP KOLOM */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs">
         {/* Table summary bar */}
-        <div className="px-4 py-3 bg-slate-50/90 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs">
+        <div className="px-4 py-3 bg-slate-50/90 rounded-t-2xl border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs">
           <div className="flex items-center gap-2">
             <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />
             <span className="font-semibold text-slate-700">Tabel Transaksi Harian</span>
@@ -822,7 +812,7 @@ export function TransactionListView() {
           {isAnyFilterActive && (
             <button
               onClick={resetAllFilters}
-              className="text-xs text-rose-600 hover:text-rose-700 font-semibold flex items-center gap-1 hover:underline"
+              className="text-xs text-rose-600 hover:text-rose-700 font-semibold flex items-center gap-1 hover:underline cursor-pointer"
             >
               <RotateCcw className="w-3 h-3" />
               <span>Reset Semua Filter</span>
@@ -830,7 +820,7 @@ export function TransactionListView() {
           )}
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto min-h-[380px]">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
               {/* ROW 1: HEADER JUDUL KOLOM */}
@@ -899,7 +889,7 @@ export function TransactionListView() {
                     <button
                       type="button"
                       onClick={handleOpenDatePopover}
-                      className={`w-full px-2 py-1.5 text-[11px] rounded-lg border flex items-center justify-between gap-1 transition-all text-left ${
+                      className={`w-full px-2 py-1.5 text-[11px] rounded-lg border flex items-center justify-between gap-1 transition-all text-left cursor-pointer ${
                         filterStartDate || filterEndDate
                           ? 'border-[#1E6B4F] bg-emerald-50/80 text-[#1E6B4F] font-bold shadow-2xs'
                           : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50/70 font-medium'
@@ -936,8 +926,8 @@ export function TransactionListView() {
                           className="fixed inset-0 z-30"
                           onClick={() => setShowDatePopover(false)}
                         />
-                        <div className="absolute top-full left-0 mt-1 z-40 bg-white rounded-xl shadow-xl border border-slate-200 p-3.5 w-72 text-slate-800 space-y-3">
-                          <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                        <div className="absolute top-full left-0 mt-1 z-40 bg-white rounded-xl shadow-2xl border border-slate-200 p-3 w-72 text-slate-800 space-y-2.5">
+                          <div className="flex items-center justify-between pb-1.5 border-b border-slate-100">
                             <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
                               <Calendar className="w-3.5 h-3.5 text-[#1E6B4F]" />
                               Rentang Tanggal
@@ -945,7 +935,7 @@ export function TransactionListView() {
                             <button
                               type="button"
                               onClick={() => setShowDatePopover(false)}
-                              className="text-slate-400 hover:text-slate-600 p-0.5 rounded"
+                              className="text-slate-400 hover:text-slate-600 p-0.5 rounded cursor-pointer"
                             >
                               <X className="w-3.5 h-3.5" />
                             </button>
@@ -956,7 +946,7 @@ export function TransactionListView() {
                             <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">
                               Pilihan Cepat
                             </span>
-                            <div className="grid grid-cols-2 gap-1.5">
+                            <div className="grid grid-cols-2 gap-1">
                               <button
                                 type="button"
                                 onClick={() => {
@@ -964,7 +954,7 @@ export function TransactionListView() {
                                   setTempStartDate(today);
                                   setTempEndDate(today);
                                 }}
-                                className="px-2 py-1 text-[11px] rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-left"
+                                className="px-2 py-1 text-[11px] rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-left cursor-pointer"
                               >
                                 Hari Ini
                               </button>
@@ -978,7 +968,7 @@ export function TransactionListView() {
                                   setTempStartDate(`${y}-${m}-01`);
                                   setTempEndDate(`${y}-${m}-${String(lastDay).padStart(2, '0')}`);
                                 }}
-                                className="px-2 py-1 text-[11px] rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-left"
+                                className="px-2 py-1 text-[11px] rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-left cursor-pointer"
                               >
                                 Bulan Ini
                               </button>
@@ -993,7 +983,7 @@ export function TransactionListView() {
                                   setTempStartDate(`${y}-${m}-01`);
                                   setTempEndDate(`${y}-${m}-${String(lastDay).padStart(2, '0')}`);
                                 }}
-                                className="px-2 py-1 text-[11px] rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-left"
+                                className="px-2 py-1 text-[11px] rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-left cursor-pointer"
                               >
                                 Bulan Lalu
                               </button>
@@ -1004,45 +994,47 @@ export function TransactionListView() {
                                   setTempStartDate(`${y}-01-01`);
                                   setTempEndDate(`${y}-12-31`);
                                 }}
-                                className="px-2 py-1 text-[11px] rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-left"
+                                className="px-2 py-1 text-[11px] rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-left cursor-pointer"
                               >
                                 Tahun Ini
                               </button>
                             </div>
                           </div>
 
-                          {/* Custom Start & End Date Inputs */}
-                          <div className="space-y-2 pt-1 border-t border-slate-100">
-                            <div>
-                              <label className="block text-[10px] font-semibold text-slate-600 mb-1">
-                                Tanggal Mulai (Start Date)
-                              </label>
-                              <input
-                                type="date"
-                                value={tempStartDate}
-                                onChange={(e) => setTempStartDate(e.target.value)}
-                                className="w-full px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg bg-slate-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#1E6B4F]"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-[10px] font-semibold text-slate-600 mb-1">
-                                Tanggal Selesai (End Date)
-                              </label>
-                              <input
-                                type="date"
-                                value={tempEndDate}
-                                onChange={(e) => setTempEndDate(e.target.value)}
-                                className="w-full px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg bg-slate-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#1E6B4F]"
-                              />
+                          {/* Custom Start & End Date Inputs (Side-by-side to save space) */}
+                          <div className="space-y-1 pt-1.5 border-t border-slate-100">
+                            <div className="grid grid-cols-2 gap-1.5">
+                              <div>
+                                <label className="block text-[10px] font-semibold text-slate-600 mb-0.5">
+                                  Dari Tanggal
+                                </label>
+                                <input
+                                  type="date"
+                                  value={tempStartDate}
+                                  onChange={(e) => setTempStartDate(e.target.value)}
+                                  className="w-full px-2 py-1 text-[11px] border border-slate-200 rounded-lg bg-slate-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#1E6B4F]"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] font-semibold text-slate-600 mb-0.5">
+                                  Sampai Tanggal
+                                </label>
+                                <input
+                                  type="date"
+                                  value={tempEndDate}
+                                  onChange={(e) => setTempEndDate(e.target.value)}
+                                  className="w-full px-2 py-1 text-[11px] border border-slate-200 rounded-lg bg-slate-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#1E6B4F]"
+                                />
+                              </div>
                             </div>
                           </div>
 
                           {/* Footer Actions */}
-                          <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                          <div className="flex items-center justify-between pt-1.5 border-t border-slate-100">
                             <button
                               type="button"
                               onClick={handleResetDate}
-                              className="text-[11px] text-rose-600 hover:underline font-semibold"
+                              className="text-[11px] text-rose-600 hover:underline font-semibold cursor-pointer"
                             >
                               Reset
                             </button>
@@ -1050,14 +1042,14 @@ export function TransactionListView() {
                               <button
                                 type="button"
                                 onClick={() => setShowDatePopover(false)}
-                                className="px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-100 rounded-lg"
+                                className="px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
                               >
                                 Batal
                               </button>
                               <button
                                 type="button"
                                 onClick={handleApplyDate}
-                                className="px-3.5 py-1 text-[11px] font-bold text-white bg-[#1E6B4F] hover:bg-[#16523c] rounded-lg shadow-2xs"
+                                className="px-3.5 py-1 text-[11px] font-bold text-white bg-[#1E6B4F] hover:bg-[#16523c] rounded-lg shadow-2xs cursor-pointer"
                               >
                                 Terapkan
                               </button>
@@ -1181,15 +1173,15 @@ export function TransactionListView() {
                           className="fixed inset-0 z-30"
                           onClick={() => setShowNominalPopover(false)}
                         />
-                        <div className="absolute top-full right-0 mt-1 z-40 bg-white rounded-xl shadow-xl border border-slate-200 p-3.5 w-72 text-slate-800 space-y-3">
-                          <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                        <div className="absolute top-full right-0 mt-1 z-40 bg-white rounded-xl shadow-2xl border border-slate-200 p-3 w-72 text-slate-800 space-y-2.5">
+                          <div className="flex items-center justify-between pb-1.5 border-b border-slate-100">
                             <span className="text-xs font-bold text-slate-800">
                               Filter Nominal (Min & Max)
                             </span>
                             <button
                               type="button"
                               onClick={() => setShowNominalPopover(false)}
-                              className="text-slate-400 hover:text-slate-600 p-0.5 rounded"
+                              className="text-slate-400 hover:text-slate-600 p-0.5 rounded cursor-pointer"
                             >
                               <X className="w-3.5 h-3.5" />
                             </button>
@@ -1200,14 +1192,14 @@ export function TransactionListView() {
                             <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">
                               Pilihan Cepat
                             </span>
-                            <div className="grid grid-cols-2 gap-1.5">
+                            <div className="grid grid-cols-2 gap-1">
                               <button
                                 type="button"
                                 onClick={() => {
                                   setTempMinAmount('');
                                   setTempMaxAmount('100.000');
                                 }}
-                                className="px-2 py-1 text-[11px] rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-left"
+                                className="px-2 py-1 text-[11px] rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-left cursor-pointer"
                               >
                                 &lt; Rp100.000
                               </button>
@@ -1217,7 +1209,7 @@ export function TransactionListView() {
                                   setTempMinAmount('100.000');
                                   setTempMaxAmount('500.000');
                                 }}
-                                className="px-2 py-1 text-[11px] rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-left"
+                                className="px-2 py-1 text-[11px] rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-left cursor-pointer"
                               >
                                 100rb - 500rb
                               </button>
@@ -1227,7 +1219,7 @@ export function TransactionListView() {
                                   setTempMinAmount('500.000');
                                   setTempMaxAmount('2.000.000');
                                 }}
-                                className="px-2 py-1 text-[11px] rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-left"
+                                className="px-2 py-1 text-[11px] rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-left cursor-pointer"
                               >
                                 500rb - 2 Juta
                               </button>
@@ -1237,57 +1229,53 @@ export function TransactionListView() {
                                   setTempMinAmount('2.000.000');
                                   setTempMaxAmount('');
                                 }}
-                                className="px-2 py-1 text-[11px] rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-left"
+                                className="px-2 py-1 text-[11px] rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-left cursor-pointer"
                               >
                                 &gt; Rp2.000.000
                               </button>
                             </div>
                           </div>
 
-                          {/* Custom Min & Max Inputs */}
-                          <div className="space-y-2 pt-1 border-t border-slate-100">
-                            <div>
-                              <label className="block text-[10px] font-semibold text-slate-600 mb-1">
-                                Nominal Minimal (Min)
-                              </label>
-                              <div className="relative">
-                                <span className="absolute inset-y-0 left-0 pl-2.5 flex items-center text-xs font-bold text-slate-400">
-                                  Rp
-                                </span>
-                                <input
-                                  type="text"
-                                  value={tempMinAmount}
-                                  onChange={(e) => setTempMinAmount(formatNumberOnly(e.target.value))}
-                                  placeholder="0"
-                                  className="w-full pl-8 pr-2.5 py-1.5 text-xs text-right font-mono border border-slate-200 rounded-lg bg-slate-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#1E6B4F]"
-                                />
+                          {/* Custom Min & Max Inputs (Side-by-side to save vertical space) */}
+                          <div className="space-y-1 pt-1.5 border-t border-slate-100">
+                            <div className="grid grid-cols-2 gap-1.5">
+                              <div>
+                                <label className="block text-[10px] font-semibold text-slate-600 mb-0.5">
+                                  Min (Rp)
+                                </label>
+                                <div className="relative">
+                                  <input
+                                    type="text"
+                                    value={tempMinAmount}
+                                    onChange={(e) => setTempMinAmount(formatNumberOnly(e.target.value))}
+                                    placeholder="0"
+                                    className="w-full px-2 py-1 text-[11px] text-right font-mono border border-slate-200 rounded-lg bg-slate-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#1E6B4F]"
+                                  />
+                                </div>
                               </div>
-                            </div>
-                            <div>
-                              <label className="block text-[10px] font-semibold text-slate-600 mb-1">
-                                Nominal Maksimal (Max)
-                              </label>
-                              <div className="relative">
-                                <span className="absolute inset-y-0 left-0 pl-2.5 flex items-center text-xs font-bold text-slate-400">
-                                  Rp
-                                </span>
-                                <input
-                                  type="text"
-                                  value={tempMaxAmount}
-                                  onChange={(e) => setTempMaxAmount(formatNumberOnly(e.target.value))}
-                                  placeholder="Tak terbatas"
-                                  className="w-full pl-8 pr-2.5 py-1.5 text-xs text-right font-mono border border-slate-200 rounded-lg bg-slate-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#1E6B4F]"
-                                />
+                              <div>
+                                <label className="block text-[10px] font-semibold text-slate-600 mb-0.5">
+                                  Max (Rp)
+                                </label>
+                                <div className="relative">
+                                  <input
+                                    type="text"
+                                    value={tempMaxAmount}
+                                    onChange={(e) => setTempMaxAmount(formatNumberOnly(e.target.value))}
+                                    placeholder="Tak batas"
+                                    className="w-full px-2 py-1 text-[11px] text-right font-mono border border-slate-200 rounded-lg bg-slate-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#1E6B4F]"
+                                  />
+                                </div>
                               </div>
                             </div>
                           </div>
 
                           {/* Footer Actions */}
-                          <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                          <div className="flex items-center justify-between pt-1.5 border-t border-slate-100">
                             <button
                               type="button"
                               onClick={handleResetNominal}
-                              className="text-[11px] text-rose-600 hover:underline font-semibold"
+                              className="text-[11px] text-rose-600 hover:underline font-semibold cursor-pointer"
                             >
                               Reset
                             </button>
@@ -1295,14 +1283,14 @@ export function TransactionListView() {
                               <button
                                 type="button"
                                 onClick={() => setShowNominalPopover(false)}
-                                className="px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-100 rounded-lg"
+                                className="px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
                               >
                                 Batal
                               </button>
                               <button
                                 type="button"
                                 onClick={handleApplyNominal}
-                                className="px-3.5 py-1 text-[11px] font-bold text-white bg-[#1E6B4F] hover:bg-[#16523c] rounded-lg shadow-2xs"
+                                className="px-3.5 py-1 text-[11px] font-bold text-white bg-[#1E6B4F] hover:bg-[#16523c] rounded-lg shadow-2xs cursor-pointer"
                               >
                                 Terapkan
                               </button>
