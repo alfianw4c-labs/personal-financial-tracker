@@ -606,7 +606,7 @@ export function TransactionListView() {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `Daily_Cashflow_${toISODate()}.csv`);
+    link.setAttribute('download', `MyFinTrack_${toISODate()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -619,7 +619,7 @@ export function TransactionListView() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold text-slate-900 tracking-tight">
-            Pencatatan Transaksi (Daily Cashflow)
+            Pencatatan Transaksi (MyFinTrack)
           </h1>
           <p className="text-xs text-slate-500">
             Kelola seluruh arus kas harian keluarga, filter, cari, dan ekspor data.

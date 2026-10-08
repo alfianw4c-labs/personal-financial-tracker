@@ -180,11 +180,11 @@ export function LoginView() {
       <div className="max-w-md w-full">
         {/* App Logo & Title */}
         <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-[#1E6B4F] text-white shadow-md shadow-emerald-950/10 mb-3">
-            <span className="text-xl font-bold tracking-tight">DC</span>
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl overflow-hidden shadow-md shadow-emerald-950/10 mb-3 border border-slate-200/80 bg-white">
+            <img src="/logo.png" alt="MyFinTrack Logo" className="w-full h-full object-cover" />
           </div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
-            Daily Cashflow
+            MyFinTrack
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
             Pencatatan Keuangan & Arus Kas Harian Keluarga
@@ -633,7 +633,7 @@ export function LoginView() {
             {/* Modal Footer */}
             <div className="px-5 py-3 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between shrink-0">
               <span className="text-[11px] text-slate-500">
-                Daily Cashflow Supabase Integration
+                MyFinTrack Supabase Integration
               </span>
               <button
                 type="button"

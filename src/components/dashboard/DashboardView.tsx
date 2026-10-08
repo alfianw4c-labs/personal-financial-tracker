@@ -16,6 +16,10 @@ import {
   Coins,
   Receipt,
   PieChart as PieChartIcon,
+  ChevronDown,
+  ChevronUp,
+  ArrowRight,
+  ReceiptText,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -32,6 +36,11 @@ import {
 } from 'recharts';
 import { useData } from '../../context/DataContext';
 import { formatRupiah, formatDateID, INDO_MONTHS } from '../../lib/formatters';
+import { BudgetEvaluationSection } from './BudgetEvaluationSection';
+
+const PLANNING_YEARS = Array.from({ length: 2040 - 2024 + 1 }, (_, i) => 2024 + i);
+
+export type DashboardDateFilterMode = 'all_time' | 'month' | 'range';
 
 interface DashboardViewProps {
   onNavigateToTransactions: () => void;
@@ -43,22 +52,87 @@ export function DashboardView({ onNavigateToTransactions, onNavigateToPlanning }
     accounts,
     transactions,
     transactionTypes,
+    categories,
+    subCategories,
+    quarterlyPlans,
+    quarterlyPlanItems,
     flowParties,
     settings,
     privacyMode,
     getMonthlyLimitStatusList,
   } = useData();
 
-  // Filter bulan & tahun dashboard (default: bulan & tahun saat ini)
+  // Mode filter tanggal dashboard (all_time | month | range)
+  const [filterMode, setFilterMode] = useState<DashboardDateFilterMode>('month');
   const [selectedYear, setSelectedYear] = useState<number>(() => new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState<number>(() => new Date().getMonth() + 1);
+  const [startDate, setStartDate] = useState<string>(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+  });
+  const [endDate, setEndDate] = useState<string>(() => {
+    const now = new Date();
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+  });
 
   // Modal Flag Limit Detail
   const [showFlagModal, setShowFlagModal] = useState<boolean>(false);
 
+  // State Evaluasi Anggaran di Dashboard
+  const [filterOnlyExceeded, setFilterOnlyExceeded] = useState<boolean>(false);
+  const [expandedSubCats, setExpandedSubCats] = useState<Set<string>>(new Set());
+
+  // Toggle Accordion per Sub Kategori
+  const toggleExpand = (subCatId: string) => {
+    setExpandedSubCats((prev) => {
+      const next = new Set(prev);
+      if (next.has(subCatId)) {
+        next.delete(subCatId);
+      } else {
+        next.add(subCatId);
+      }
+      return next;
+    });
+  };
+
+  const handleToggleExpandAll = (itemCount: number, ids: string[]) => {
+    if (expandedSubCats.size > 0) {
+      setExpandedSubCats(new Set());
+    } else {
+      setExpandedSubCats(new Set(ids));
+    }
+  };
+
+  // Label periode yang aktif
+  const periodLabel = useMemo(() => {
+    if (filterMode === 'all_time') return 'Semua Waktu';
+    if (filterMode === 'month') return `${INDO_MONTHS[selectedMonth - 1]} ${selectedYear}`;
+    if (filterMode === 'range') return `${formatDateID(startDate)} — ${formatDateID(endDate)}`;
+    return '';
+  }, [filterMode, selectedMonth, selectedYear, startDate, endDate]);
+
+  // Transaksi terfilter sesuai mode tanggal yang aktif
+  const filteredTransactions = useMemo(() => {
+    return transactions.filter((t) => {
+      if (!t.tx_date) return false;
+      if (filterMode === 'all_time') return true;
+      if (filterMode === 'month') {
+        const prefix = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}`;
+        return t.tx_date.startsWith(prefix);
+      }
+      if (filterMode === 'range') {
+        if (startDate && t.tx_date < startDate) return false;
+        if (endDate && t.tx_date > endDate) return false;
+        return true;
+      }
+      return true;
+    });
+  }, [transactions, filterMode, selectedYear, selectedMonth, startDate, endDate]);
+
   // Available years from transactions
   const availableYears = useMemo(() => {
-    const years = new Set<number>([2024, 2025, 2026, new Date().getFullYear()]);
+    const years = new Set<number>(PLANNING_YEARS);
     transactions.forEach((t) => {
       if (t.tx_date) {
         const y = new Date(t.tx_date).getFullYear();
@@ -112,18 +186,8 @@ export function DashboardView({ onNavigateToTransactions, onNavigateToPlanning }
     }));
   }, [accounts]);
 
-  // 3. Ringkasan Bulan Terpilih vs Bulan Lalu
+  // 3. Ringkasan Periode Terpilih (Pemasukan, Pengeluaran, Cashflow)
   const monthSummary = useMemo(() => {
-    const currentPrefix = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}`;
-
-    let prevMonth = selectedMonth - 1;
-    let prevYear = selectedYear;
-    if (prevMonth < 1) {
-      prevMonth = 12;
-      prevYear = selectedYear - 1;
-    }
-    const prevPrefix = `${prevYear}-${String(prevMonth).padStart(2, '0')}`;
-
     let incomeCurrent = 0;
     let expenseCurrent = 0;
     let incomePrev = 0;
@@ -132,24 +196,41 @@ export function DashboardView({ onNavigateToTransactions, onNavigateToPlanning }
     const incomeTypeIds = new Set(transactionTypes.filter((t) => t.kind === 'income').map((t) => t.id));
     const expenseTypeIds = new Set(transactionTypes.filter((t) => t.kind === 'expense').map((t) => t.id));
 
-    for (const t of transactions) {
-      if (!t.tx_date) continue;
+    // Hitung periode aktif dari filteredTransactions
+    for (const t of filteredTransactions) {
       const amt = Number(t.amount) || 0;
+      if (incomeTypeIds.has(t.transaction_type_id)) incomeCurrent += amt;
+      if (expenseTypeIds.has(t.transaction_type_id)) expenseCurrent += amt;
+    }
 
-      if (t.tx_date.startsWith(currentPrefix)) {
-        if (incomeTypeIds.has(t.transaction_type_id)) incomeCurrent += amt;
-        if (expenseTypeIds.has(t.transaction_type_id)) expenseCurrent += amt;
-      } else if (t.tx_date.startsWith(prevPrefix)) {
+    // Jika mode 'month', hitung perbandingan dengan bulan sebelumnya
+    let prevMonthName = '';
+    let expenseDiff = 0;
+    let incomeDiff = 0;
+
+    if (filterMode === 'month') {
+      let prevMonth = selectedMonth - 1;
+      let prevYear = selectedYear;
+      if (prevMonth < 1) {
+        prevMonth = 12;
+        prevYear = selectedYear - 1;
+      }
+      const prevPrefix = `${prevYear}-${String(prevMonth).padStart(2, '0')}`;
+
+      for (const t of transactions) {
+        if (!t.tx_date?.startsWith(prevPrefix)) continue;
+        const amt = Number(t.amount) || 0;
         if (incomeTypeIds.has(t.transaction_type_id)) incomePrev += amt;
         if (expenseTypeIds.has(t.transaction_type_id)) expensePrev += amt;
       }
+
+      prevMonthName = INDO_MONTHS[prevMonth - 1];
+      expenseDiff = expenseCurrent - expensePrev;
+      incomeDiff = incomeCurrent - incomePrev;
     }
 
     const cashflowCurrent = incomeCurrent - expenseCurrent;
     const cashflowPrev = incomePrev - expensePrev;
-
-    const expenseDiff = expenseCurrent - expensePrev;
-    const incomeDiff = incomeCurrent - incomePrev;
 
     return {
       incomeCurrent,
@@ -160,9 +241,9 @@ export function DashboardView({ onNavigateToTransactions, onNavigateToPlanning }
       cashflowPrev,
       expenseDiff,
       incomeDiff,
-      prevMonthName: INDO_MONTHS[prevMonth - 1],
+      prevMonthName,
     };
-  }, [transactions, transactionTypes, selectedYear, selectedMonth]);
+  }, [filteredTransactions, transactions, transactionTypes, filterMode, selectedYear, selectedMonth]);
 
   // 4. Perhitungan Hidup Tanpa Gaji (Emergency Fund Runway)
   const runwayMetric = useMemo(() => {
@@ -200,10 +281,12 @@ export function DashboardView({ onNavigateToTransactions, onNavigateToPlanning }
       countMonths = 1;
     }
 
-    const avgExpense = countMonths > 0 ? totalPastExpense / countMonths : 3500000; // baseline realistic fallback
+    const avgExpense = countMonths > 0 ? totalPastExpense / countMonths : 3500000;
 
     // Saldo dana darurat
-    const emergencyAcc = accounts.find((a) => a.id === settings.emergency_fund_account_id) || accounts.find((a) => a.name.toLowerCase().includes('darurat'));
+    const emergencyAcc =
+      accounts.find((a) => a.id === settings.emergency_fund_account_id) ||
+      accounts.find((a) => a.name.toLowerCase().includes('darurat'));
     const emergencyBalance = emergencyAcc ? Number(emergencyAcc.current_balance) || 0 : balancesByGroup.tabungan;
 
     const monthsRunway = avgExpense > 0 ? (emergencyBalance / avgExpense).toFixed(1) : '0';
@@ -218,14 +301,12 @@ export function DashboardView({ onNavigateToTransactions, onNavigateToPlanning }
 
   // 5. Pemasukan per Sumber & Pengeluaran per Tujuan
   const flowPartiesBreakdown = useMemo(() => {
-    const currentPrefix = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}`;
     const incomeSources: Record<string, number> = {};
     const expenseDestinations: Record<string, number> = {};
 
     const partyMap = new Map(flowParties.map((p) => [p.id, p]));
 
-    for (const t of transactions) {
-      if (!t.tx_date?.startsWith(currentPrefix)) continue;
+    for (const t of filteredTransactions) {
       const amt = Number(t.amount) || 0;
 
       if (t.source_party_id) {
@@ -244,16 +325,110 @@ export function DashboardView({ onNavigateToTransactions, onNavigateToPlanning }
       incomeSources: Object.entries(incomeSources).map(([name, value]) => ({ name, value })),
       expenseDestinations: Object.entries(expenseDestinations).map(([name, value]) => ({ name, value })),
     };
-  }, [selectedYear, selectedMonth, transactions, flowParties]);
+  }, [filteredTransactions, flowParties]);
 
-  // 6. Evaluasi Limit Pengeluaran Bulan Terpilih (Point 8 & 8a)
-  const monthlyLimits = useMemo(() => {
-    return getMonthlyLimitStatusList(selectedYear, selectedMonth);
-  }, [getMonthlyLimitStatusList, selectedYear, selectedMonth]);
+  // 6. Sub Kategori Belanja & Rencana Anggaran (Untuk Evaluasi di Dashboard)
+  const expenseTypeIds = useMemo(
+    () => new Set(transactionTypes.filter((t) => t.kind === 'expense').map((t) => t.id)),
+    [transactionTypes]
+  );
+  const expenseCatIds = useMemo(
+    () => new Set(categories.filter((c) => expenseTypeIds.has(c.transaction_type_id)).map((c) => c.id)),
+    [categories, expenseTypeIds]
+  );
+  const expenseSubCategories = useMemo(
+    () => subCategories.filter((s) => expenseCatIds.has(s.category_id)),
+    [subCategories, expenseCatIds]
+  );
+
+  const effectiveQuarter = useMemo(() => {
+    const effectiveMonth = filterMode === 'month' ? selectedMonth : new Date().getMonth() + 1;
+    return Math.ceil(effectiveMonth / 3);
+  }, [filterMode, selectedMonth]);
+
+  const activeQuarterlyPlan = useMemo(() => {
+    const effectiveYear = filterMode === 'month' ? selectedYear : new Date().getFullYear();
+    return quarterlyPlans.find((p) => Number(p.year) === effectiveYear && Number(p.quarter) === effectiveQuarter);
+  }, [quarterlyPlans, filterMode, selectedYear, effectiveQuarter]);
+
+  const activePlanItems = useMemo(() => {
+    if (!activeQuarterlyPlan) return [];
+    return quarterlyPlanItems.filter((i) => i.plan_id === activeQuarterlyPlan.id);
+  }, [quarterlyPlanItems, activeQuarterlyPlan]);
+
+  // Evaluasi & Monitoring Realisasi Anggaran per Sub Kategori
+  const monitoringList = useMemo(() => {
+    const spentBySubCat: Record<string, number> = {};
+    for (const t of filteredTransactions) {
+      if (expenseTypeIds.has(t.transaction_type_id) && t.sub_category_id) {
+        spentBySubCat[t.sub_category_id] = (spentBySubCat[t.sub_category_id] || 0) + Number(t.amount);
+      }
+    }
+
+    const list = expenseSubCategories.map((sub) => {
+      const customItem = activePlanItems.find((pi) => pi.sub_category_id === sub.id);
+      const limit = customItem
+        ? Number(customItem.monthly_limit)
+        : sub.default_limit !== null
+        ? Number(sub.default_limit)
+        : null;
+      const spent = spentBySubCat[sub.id] || 0;
+      const remaining = limit !== null ? limit - spent : null;
+      const percentage = limit && limit > 0 ? Math.round((spent / limit) * 100) : 0;
+
+      let status: 'aman' | 'mendekati' | 'melebihi' | 'tanpa_limit' = 'tanpa_limit';
+      if (limit !== null) {
+        if (spent > limit) {
+          status = 'melebihi';
+        } else if (percentage >= 80) {
+          status = 'mendekati';
+        } else {
+          status = 'aman';
+        }
+      }
+
+      return {
+        sub_category_id: sub.id,
+        sub_category_name: sub.name,
+        monthly_limit: limit,
+        spent,
+        remaining,
+        percentage,
+        status,
+        note: customItem?.note || '',
+      };
+    });
+
+    return list.filter((item) => {
+      if (filterOnlyExceeded) {
+        return item.status === 'melebihi';
+      }
+      return true;
+    });
+  }, [
+    filteredTransactions,
+    expenseTypeIds,
+    expenseSubCategories,
+    activePlanItems,
+    filterOnlyExceeded,
+  ]);
+
+  // Map transaksi belanja per sub kategori untuk akordion
+  const txMapBySubCategory = useMemo(() => {
+    const map = new Map<string, typeof transactions>();
+    for (const t of filteredTransactions) {
+      if (expenseTypeIds.has(t.transaction_type_id) && t.sub_category_id) {
+        const arr = map.get(t.sub_category_id) || [];
+        arr.push(t);
+        map.set(t.sub_category_id, arr);
+      }
+    }
+    return map;
+  }, [filteredTransactions, expenseTypeIds]);
 
   const exceededLimitItems = useMemo(() => {
-    return monthlyLimits.filter((item) => item.status === 'melebihi');
-  }, [monthlyLimits]);
+    return monitoringList.filter((item) => item.status === 'melebihi');
+  }, [monitoringList]);
 
   // 7. Tren Arus Kas 6 Bulan Terakhir
   const trendData = useMemo(() => {
@@ -261,9 +436,12 @@ export function DashboardView({ onNavigateToTransactions, onNavigateToPlanning }
     const incomeTypeIds = new Set(transactionTypes.filter((t) => t.kind === 'income').map((t) => t.id));
     const expenseTypeIds = new Set(transactionTypes.filter((t) => t.kind === 'expense').map((t) => t.id));
 
+    const baseYear = filterMode === 'month' ? selectedYear : new Date().getFullYear();
+    const baseMonth = filterMode === 'month' ? selectedMonth : new Date().getMonth() + 1;
+
     for (let i = 5; i >= 0; i--) {
-      let m = selectedMonth - i;
-      let y = selectedYear;
+      let m = baseMonth - i;
+      let y = baseYear;
       while (m < 1) {
         m += 12;
         y -= 1;
@@ -280,19 +458,19 @@ export function DashboardView({ onNavigateToTransactions, onNavigateToPlanning }
       }
 
       data.push({
-        monthName: INDO_MONTHS[m - 1].slice(0, 3),
+        monthName: `${INDO_MONTHS[m - 1].slice(0, 3)} '${String(y).slice(2)}`,
         Pemasukan: inc,
         Pengeluaran: exp,
       });
     }
 
     return data;
-  }, [selectedYear, selectedMonth, transactions, transactionTypes]);
+  }, [filterMode, selectedYear, selectedMonth, transactions, transactionTypes]);
 
-  // 8. 10 Transaksi Terakhir
+  // 8. 10 Transaksi Terakhir (Sesuai Filter)
   const recentTransactions = useMemo(() => {
-    return [...transactions].slice(0, 10);
-  }, [transactions]);
+    return [...filteredTransactions].slice(0, 10);
+  }, [filteredTransactions]);
 
   // Donut data: Saldo Bersih vs Tabungan
   const wealthDonutData = useMemo(() => {
@@ -304,8 +482,8 @@ export function DashboardView({ onNavigateToTransactions, onNavigateToPlanning }
 
   return (
     <div className="w-full max-w-[1680px] mx-auto px-2.5 sm:px-4 lg:px-6 py-4 space-y-4">
-      {/* FILTER HEADER BULAN & TAHUN */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-2xs">
+      {/* FILTER HEADER (Semua Waktu, Pilih Bulan, atau Rentang Tanggal) */}
+      <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-2xs">
         <div>
           <div className="flex items-center gap-2">
             <Calendar className="w-5 h-5 text-[#1E6B4F]" />
@@ -314,42 +492,113 @@ export function DashboardView({ onNavigateToTransactions, onNavigateToPlanning }
             </h1>
           </div>
           <p className="text-xs text-slate-500 mt-0.5">
-            Periode Laporan: {INDO_MONTHS[selectedMonth - 1]} {selectedYear}
+            Periode Laporan: <span className="font-semibold text-slate-800">{periodLabel}</span>
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* Pilih Bulan */}
-          <select
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(Number(e.target.value))}
-            className="px-3 py-2 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1E6B4F]"
-          >
-            {INDO_MONTHS.map((name, idx) => (
-              <option key={idx + 1} value={idx + 1}>
-                {name}
-              </option>
-            ))}
-          </select>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 flex-wrap">
+          {/* Mode Selector Tabs (All Time, Pilih Bulan, Rentang Tanggal) */}
+          <div className="flex items-center bg-slate-100 p-1 rounded-xl gap-1 self-start sm:self-auto">
+            <button
+              type="button"
+              onClick={() => setFilterMode('all_time')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                filterMode === 'all_time'
+                  ? 'bg-white text-[#1E6B4F] font-bold shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Semua Waktu
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilterMode('month')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                filterMode === 'month'
+                  ? 'bg-white text-[#1E6B4F] font-bold shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Pilih Bulan
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilterMode('range')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                filterMode === 'range'
+                  ? 'bg-white text-[#1E6B4F] font-bold shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Rentang Tanggal
+            </button>
+          </div>
 
-          {/* Pilih Tahun */}
-          <select
-            value={selectedYear}
-            onChange={(e) => setSelectedYear(Number(e.target.value))}
-            className="px-3 py-2 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1E6B4F]"
-          >
-            {availableYears.map((yr) => (
-              <option key={yr} value={yr}>
-                {yr}
-              </option>
-            ))}
-          </select>
+          {/* Sub Controls Berdasarkan Mode Filter */}
+          {filterMode === 'month' && (
+            <div className="flex items-center gap-2">
+              {/* Pilih Bulan */}
+              <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(Number(e.target.value))}
+                className="px-3 py-2 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1E6B4F] cursor-pointer"
+              >
+                {INDO_MONTHS.map((name, idx) => (
+                  <option key={idx + 1} value={idx + 1}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+
+              {/* Pilih Tahun (Hingga 2040) */}
+              <select
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(Number(e.target.value))}
+                className="px-3 py-2 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1E6B4F] cursor-pointer"
+              >
+                {availableYears.map((yr) => (
+                  <option key={yr} value={yr}>
+                    Tahun {yr}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {filterMode === 'range' && (
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-2.5 py-1.5 rounded-xl">
+                <span className="text-[11px] font-semibold text-slate-500">Dari:</span>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="text-xs font-semibold text-slate-800 bg-transparent focus:outline-none cursor-pointer"
+                />
+              </div>
+              <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-2.5 py-1.5 rounded-xl">
+                <span className="text-[11px] font-semibold text-slate-500">Sampai:</span>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="text-xs font-semibold text-slate-800 bg-transparent focus:outline-none cursor-pointer"
+                />
+              </div>
+            </div>
+          )}
+
+          {filterMode === 'all_time' && (
+            <span className="text-xs font-medium text-emerald-800 bg-emerald-50 px-3 py-2 rounded-xl border border-emerald-200">
+              Total {filteredTransactions.length} Transaksi
+            </span>
+          )}
         </div>
       </div>
 
       {/* TOP METRICS: SELURUH KEKAYAAN, SALDO BERSIH, TABUNGAN, RUNWAY */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* 1. Seluruh Kekayaan */}
+        {/* Seluruh Kekayaan */}
         <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-2xs relative overflow-hidden flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-500">Seluruh Kekayaan</span>
@@ -367,7 +616,7 @@ export function DashboardView({ onNavigateToTransactions, onNavigateToPlanning }
           </div>
         </div>
 
-        {/* 3. Saldo Bersih */}
+        {/* Saldo Bersih */}
         <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-2xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-500">Saldo Bersih Operasional</span>
@@ -388,7 +637,7 @@ export function DashboardView({ onNavigateToTransactions, onNavigateToPlanning }
           </div>
         </div>
 
-        {/* 2. Total Tabungan */}
+        {/* Total Tabungan */}
         <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-2xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-500">Total Tabungan</span>
@@ -406,7 +655,7 @@ export function DashboardView({ onNavigateToTransactions, onNavigateToPlanning }
           </div>
         </div>
 
-        {/* 4. Hidup Tanpa Gaji */}
+        {/* Hidup Tanpa Gaji */}
         <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-2xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-500">Hidup Tanpa Gaji</span>
@@ -428,16 +677,24 @@ export function DashboardView({ onNavigateToTransactions, onNavigateToPlanning }
         </div>
       </div>
 
-      {/* 8a. KARTU FLAG LIMIT & RINGKASAN CASHFLOW */}
+      {/* KARTU FLAG LIMIT & RINGKASAN CASHFLOW */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Ringkasan Bulan Ini (Income, Expense, Cashflow) */}
+        {/* Ringkasan Periode Ini (Income, Expense, Cashflow) */}
         <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-bold text-slate-900">
-              Ringkasan Bulan Ini ({INDO_MONTHS[selectedMonth - 1]})
+              {filterMode === 'month'
+                ? `Ringkasan Bulan Ini (${INDO_MONTHS[selectedMonth - 1]})`
+                : filterMode === 'all_time'
+                ? 'Ringkasan Semua Waktu'
+                : 'Ringkasan Rentang Tanggal Terpilih'}
             </h2>
             <span className="text-xs text-slate-400">
-              Dibanding {monthSummary.prevMonthName}
+              {filterMode === 'month'
+                ? `Dibanding ${monthSummary.prevMonthName}`
+                : filterMode === 'all_time'
+                ? 'Seluruh data transaksi'
+                : `${formatDateID(startDate)} s/d ${formatDateID(endDate)}`}
             </span>
           </div>
 
@@ -447,13 +704,15 @@ export function DashboardView({ onNavigateToTransactions, onNavigateToPlanning }
               <div className="text-xl font-bold text-emerald-900 tabular-nums mt-1">
                 {formatRupiah(monthSummary.incomeCurrent, privacyMode)}
               </div>
-              <div className="flex items-center gap-1 text-[11px] mt-1 text-emerald-700">
-                <ArrowUpRight className="w-3.5 h-3.5" />
-                <span>
-                  {monthSummary.incomeDiff >= 0 ? '+' : ''}
-                  {formatRupiah(monthSummary.incomeDiff, privacyMode)}
-                </span>
-              </div>
+              {filterMode === 'month' && (
+                <div className="flex items-center gap-1 text-[11px] mt-1 text-emerald-700">
+                  <ArrowUpRight className="w-3.5 h-3.5" />
+                  <span>
+                    {monthSummary.incomeDiff >= 0 ? '+' : ''}
+                    {formatRupiah(monthSummary.incomeDiff, privacyMode)}
+                  </span>
+                </div>
+              )}
             </div>
 
             <div className="p-4 rounded-xl bg-rose-50/60 border border-rose-100">
@@ -461,13 +720,15 @@ export function DashboardView({ onNavigateToTransactions, onNavigateToPlanning }
               <div className="text-xl font-bold text-rose-900 tabular-nums mt-1">
                 {formatRupiah(monthSummary.expenseCurrent, privacyMode)}
               </div>
-              <div className="flex items-center gap-1 text-[11px] mt-1 text-rose-700">
-                <ArrowDownRight className="w-3.5 h-3.5" />
-                <span>
-                  {monthSummary.expenseDiff >= 0 ? '+' : ''}
-                  {formatRupiah(monthSummary.expenseDiff, privacyMode)}
-                </span>
-              </div>
+              {filterMode === 'month' && (
+                <div className="flex items-center gap-1 text-[11px] mt-1 text-rose-700">
+                  <ArrowDownRight className="w-3.5 h-3.5" />
+                  <span>
+                    {monthSummary.expenseDiff >= 0 ? '+' : ''}
+                    {formatRupiah(monthSummary.expenseDiff, privacyMode)}
+                  </span>
+                </div>
+              )}
             </div>
 
             <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
@@ -480,13 +741,13 @@ export function DashboardView({ onNavigateToTransactions, onNavigateToPlanning }
                 {formatRupiah(monthSummary.cashflowCurrent, privacyMode)}
               </div>
               <span className="text-[11px] text-slate-500 mt-1 block">
-                {monthSummary.cashflowCurrent >= 0 ? 'Surplus Bulanan' : 'Defisit Bulanan'}
+                {monthSummary.cashflowCurrent >= 0 ? 'Surplus Periode' : 'Defisit Periode'}
               </span>
             </div>
           </div>
         </div>
 
-        {/* 8a. Kartu Flag Limit */}
+        {/* Kartu Flag Limit */}
         <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between">
@@ -514,7 +775,7 @@ export function DashboardView({ onNavigateToTransactions, onNavigateToPlanning }
                 {exceededLimitItems.length > 0
                   ? `Ada pengeluaran ${exceededLimitItems.map((i) => i.sub_category_name).slice(0, 2).join(', ')}${
                       exceededLimitItems.length > 2 ? '...' : ''
-                    } yang melampaui limit anggaran kuartal.`
+                    } yang melampaui limit anggaran periode ini.`
                   : 'Seluruh pos pengeluaran berada dalam batas aman anggaran.'}
               </p>
             </div>
@@ -524,14 +785,14 @@ export function DashboardView({ onNavigateToTransactions, onNavigateToPlanning }
             <button
               onClick={() => setShowFlagModal(true)}
               disabled={exceededLimitItems.length === 0}
-              className="text-xs font-semibold text-rose-600 hover:text-rose-800 disabled:opacity-40 disabled:hover:text-rose-600 flex items-center gap-1"
+              className="text-xs font-semibold text-rose-600 hover:text-rose-800 disabled:opacity-40 disabled:hover:text-rose-600 flex items-center gap-1 cursor-pointer"
             >
               <span>Lihat Detail Flag</span>
               <ChevronRight className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={onNavigateToPlanning}
-              className="text-xs font-semibold text-[#1E6B4F] hover:underline"
+              className="text-xs font-semibold text-[#1E6B4F] hover:underline cursor-pointer"
             >
               Atur Rencana
             </button>
@@ -544,7 +805,7 @@ export function DashboardView({ onNavigateToTransactions, onNavigateToPlanning }
         {/* Donut Saldo Bersih vs Tabungan */}
         <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs">
           <h2 className="text-sm font-bold text-slate-900 mb-4">
-            1. Donut: Saldo Bersih vs Tabungan
+            Saldo Bersih vs Tabungan
           </h2>
           <div className="h-56">
             <ResponsiveContainer width="100%" height="100%">
@@ -584,7 +845,7 @@ export function DashboardView({ onNavigateToTransactions, onNavigateToPlanning }
         {/* Donut Tabungan per Tujuan */}
         <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs">
           <h2 className="text-sm font-bold text-slate-900 mb-4">
-            2. Donut: Alokasi Tabungan per Tujuan
+            Alokasi Tabungan per Tujuan
           </h2>
           {savingsGoalsBreakdown.length > 0 ? (
             <>
@@ -630,10 +891,10 @@ export function DashboardView({ onNavigateToTransactions, onNavigateToPlanning }
         </div>
       </div>
 
-      {/* 5. PROGRESS TABUNGAN BERTARGET */}
+      {/* PROGRESS TABUNGAN BERTARGET */}
       <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs">
         <h2 className="text-sm font-bold text-slate-900 mb-4">
-          5. Progress Tabungan Bertarget
+          Progress Tabungan Bertarget
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {savingsGoalsBreakdown.map((goal, idx) => {
@@ -661,11 +922,11 @@ export function DashboardView({ onNavigateToTransactions, onNavigateToPlanning }
         </div>
       </div>
 
-      {/* 7. PEMASUKAN PER SUMBER & PENGELUARAN PER TUJUAN */}
+      {/* PEMASUKAN PER SUMBER & PENGELUARAN PER TUJUAN */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-3">
           <h2 className="text-sm font-bold text-slate-900">
-            7a. Pemasukan per Pihak Sumber
+            Pemasukan per Pihak Sumber
           </h2>
           <div className="space-y-2">
             {flowPartiesBreakdown.incomeSources.length > 0 ? (
@@ -685,7 +946,7 @@ export function DashboardView({ onNavigateToTransactions, onNavigateToPlanning }
 
         <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-3">
           <h2 className="text-sm font-bold text-slate-900">
-            7b. Pengeluaran per Pihak Tujuan
+            Pengeluaran per Pihak Tujuan
           </h2>
           <div className="space-y-2">
             {flowPartiesBreakdown.expenseDestinations.length > 0 ? (
@@ -704,10 +965,10 @@ export function DashboardView({ onNavigateToTransactions, onNavigateToPlanning }
         </div>
       </div>
 
-      {/* 9. TREN ARUS KAS 6 BULAN */}
+      {/* TREN ARUS KAS 6 BULAN */}
       <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs">
         <h2 className="text-sm font-bold text-slate-900 mb-4">
-          9. Tren Arus Kas (Pemasukan vs Pengeluaran 6 Bulan)
+          Tren Arus Kas (Pemasukan vs Pengeluaran 6 Bulan)
         </h2>
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
@@ -729,11 +990,36 @@ export function DashboardView({ onNavigateToTransactions, onNavigateToPlanning }
         </div>
       </div>
 
-      {/* 10. DAFTAR SALDO AKUN BERWARNA PER GRUP */}
+      {/* EVALUASI & REALISASI ANGGARAN PER SUB KATEGORI (DI BAWAH TREN ARUS KAS) */}
+      <BudgetEvaluationSection
+        periodLabel={
+          filterMode === 'month'
+            ? `${INDO_MONTHS[selectedMonth - 1]} ${selectedYear}`
+            : filterMode === 'all_time'
+            ? 'Semua Waktu'
+            : `${formatDateID(startDate)} - ${formatDateID(endDate)}`
+        }
+        filterMode={filterMode}
+        monitoringList={monitoringList}
+        expenseSubCategories={expenseSubCategories}
+        activePlanItems={activePlanItems}
+        categories={categories}
+        expandedSubCats={expandedSubCats}
+        txMapBySubCategory={txMapBySubCategory}
+        filterOnlyExceeded={filterOnlyExceeded}
+        setFilterOnlyExceeded={setFilterOnlyExceeded}
+        toggleExpand={toggleExpand}
+        handleToggleExpandAll={handleToggleExpandAll}
+        privacyMode={privacyMode}
+        onNavigateToPlanning={onNavigateToPlanning}
+        effectiveQuarter={effectiveQuarter}
+      />
+
+      {/* SALDO AKUN BERWARNA PER GRUP */}
       <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-bold text-slate-900">
-            10. Saldo Akun Keuangan (Cash, Bank, Tabungan, PayLater)
+            Saldo Akun Keuangan (Cash, Bank, Tabungan, PayLater)
           </h2>
         </div>
 
@@ -795,11 +1081,11 @@ export function DashboardView({ onNavigateToTransactions, onNavigateToPlanning }
         </div>
       </div>
 
-      {/* 11. 10 TRANSAKSI TERAKHIR */}
+      {/* TRANSAKSI TERAKHIR */}
       <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-bold text-slate-900">
-            11. 10 Transaksi Terakhir
+            Transaksi Terakhir
           </h2>
           <button
             onClick={onNavigateToTransactions}

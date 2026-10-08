@@ -114,16 +114,16 @@ export function Navbar({
             <div className={`pt-2 flex items-center ${collapsed ? 'flex-col gap-2 justify-center' : 'justify-between px-2'}`}>
               <div className={`flex items-center ${collapsed ? 'justify-center' : 'gap-3'} min-w-0`}>
                 <div
-                  className="w-10 h-10 rounded-xl bg-[#1E6B4F] text-white flex items-center justify-center font-extrabold text-base shadow-sm shrink-0 cursor-pointer hover:opacity-90 transition-opacity"
+                  className="w-10 h-10 rounded-xl overflow-hidden shadow-xs shrink-0 cursor-pointer hover:opacity-90 transition-opacity border border-slate-200 bg-white"
                   onClick={onToggleCollapse}
-                  title={collapsed ? 'Klik untuk perluas sidebar' : 'Daily Cashflow'}
+                  title={collapsed ? 'Klik untuk perluas sidebar' : 'MyFinTrack'}
                 >
-                  DC
+                  <img src="/logo.png" alt="MyFinTrack" className="w-full h-full object-cover" />
                 </div>
                 {!collapsed && (
                   <div className="min-w-0">
                     <span className="text-base font-bold tracking-tight text-slate-900 block leading-tight truncate">
-                      Daily Cashflow
+                      MyFinTrack
                     </span>
                     <span className="text-[11px] text-slate-500 font-medium block truncate">
                       Keuangan Keluarga
@@ -313,12 +313,12 @@ export function Navbar({
           onClick={() => setActiveTab('dashboard')}
           className="flex items-center gap-2 text-left focus:outline-none"
         >
-          <div className="w-8 h-8 rounded-lg bg-[#1E6B4F] text-white flex items-center justify-center font-bold text-xs shadow-xs">
-            DC
+          <div className="w-8 h-8 rounded-lg overflow-hidden shadow-xs border border-slate-200 bg-white shrink-0">
+            <img src="/logo.png" alt="MyFinTrack" className="w-full h-full object-cover" />
           </div>
           <div>
             <span className="text-sm font-bold tracking-tight text-slate-900 block leading-tight">
-              Daily Cashflow
+              MyFinTrack
             </span>
             <span className="text-[10px] text-slate-500 font-medium">
               Keuangan Keluarga

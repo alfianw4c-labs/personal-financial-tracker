@@ -1,6 +1,6 @@
 // Skema SQL lengkap dan query migrasi untuk Supabase PostgreSQL
 export const SUPABASE_SETUP_SQL = `-- ====================================================================
--- DAILY CASHFLOW - SKEMA LENGKAP & USER SEED (POSTGRESQL / SUPABASE)
+-- MYFINTRACK - SKEMA LENGKAP & USER SEED (POSTGRESQL / SUPABASE)
 -- Jalankan di: Supabase Dashboard -> SQL Editor -> New Query -> Run
 -- ====================================================================
 
