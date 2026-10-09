@@ -36,6 +36,7 @@ export function Navbar({
   const { currentUser, logout, isSuperAdmin, changePassword } = useAuth();
   const { privacyMode, setPrivacyMode, exceededLimitCountCurrentMonth } = useData();
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   // Form ganti password
   const [oldPassword, setOldPassword] = useState('');
@@ -114,11 +115,11 @@ export function Navbar({
             <div className={`pt-2 flex items-center ${collapsed ? 'flex-col gap-2 justify-center' : 'justify-between px-2'}`}>
               <div className={`flex items-center ${collapsed ? 'justify-center' : 'gap-3'} min-w-0`}>
                 <div
-                  className="w-10 h-10 rounded-xl overflow-hidden shadow-xs shrink-0 cursor-pointer hover:opacity-90 transition-opacity border border-slate-200 bg-white"
+                  className="w-10 h-10 shrink-0 cursor-pointer hover:opacity-90 transition-opacity flex items-center justify-center"
                   onClick={onToggleCollapse}
                   title={collapsed ? 'Klik untuk perluas sidebar' : 'MyFinTrack'}
                 >
-                  <img src="/logo.png" alt="MyFinTrack" className="w-full h-full object-cover" />
+                  <img src="/logo.png" alt="MyFinTrack" className="w-full h-full object-contain" />
                 </div>
                 {!collapsed && (
                   <div className="min-w-0">
@@ -264,7 +265,7 @@ export function Navbar({
                     {currentUser.full_name?.charAt(0).toUpperCase() || 'U'}
                   </button>
                   <button
-                    onClick={logout}
+                    onClick={() => setShowLogoutConfirm(true)}
                     title="Keluar Akun"
                     className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
                   >
@@ -292,7 +293,7 @@ export function Navbar({
                   </button>
 
                   <button
-                    onClick={logout}
+                    onClick={() => setShowLogoutConfirm(true)}
                     title="Keluar"
                     className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors shrink-0"
                   >
@@ -311,16 +312,16 @@ export function Navbar({
       <header className="md:hidden sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200 px-4 h-14 flex items-center justify-between">
         <button
           onClick={() => setActiveTab('dashboard')}
-          className="flex items-center gap-2 text-left focus:outline-none"
+          className="flex items-center gap-2.5 text-left focus:outline-none"
         >
-          <div className="w-8 h-8 rounded-lg overflow-hidden shadow-xs border border-slate-200 bg-white shrink-0">
-            <img src="/logo.png" alt="MyFinTrack" className="w-full h-full object-cover" />
+          <div className="w-8 h-8 shrink-0 flex items-center justify-center">
+            <img src="/logo.png" alt="MyFinTrack" className="w-full h-full object-contain" />
           </div>
-          <div>
-            <span className="text-sm font-bold tracking-tight text-slate-900 block leading-tight">
+          <div className="flex flex-col justify-center leading-none -space-y-0.5">
+            <span className="text-sm font-bold tracking-tight text-slate-900 block leading-none">
               MyFinTrack
             </span>
-            <span className="text-[10px] text-slate-500 font-medium">
+            <span className="text-[10px] text-slate-500 font-medium block leading-none mt-0.5">
               Keuangan Keluarga
             </span>
           </div>
@@ -351,9 +352,9 @@ export function Navbar({
               </button>
 
               <button
-                onClick={logout}
+                onClick={() => setShowLogoutConfirm(true)}
                 title="Keluar"
-                className="p-2 text-slate-400 hover:text-rose-600 rounded-lg"
+                className="p-2 text-slate-400 hover:text-rose-600 rounded-lg transition-colors"
               >
                 <LogOut className="w-4 h-4" />
               </button>
@@ -509,6 +510,45 @@ export function Navbar({
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* 5. MODAL KONFIRMASI LOGOUT                               */}
+      {/* ======================================================== */}
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-5 sm:p-6 shadow-xl border border-slate-100 text-center">
+            <div className="w-12 h-12 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto mb-3.5">
+              <LogOut className="w-6 h-6 stroke-[2.2]" />
+            </div>
+            <h3 className="text-base font-bold text-slate-900 mb-1">
+              Konfirmasi Keluar
+            </h3>
+            <p className="text-xs text-slate-600 leading-relaxed mb-5">
+              Apakah Anda yakin ingin keluar dari akun <span className="font-semibold text-slate-800">{currentUser?.full_name || 'MyFinTrack'}</span>? Anda perlu masuk kembali dengan email dan kata sandi untuk mengakses data.
+            </p>
+            <div className="grid grid-cols-2 gap-2.5">
+              <button
+                type="button"
+                onClick={() => setShowLogoutConfirm(false)}
+                className="w-full py-2.5 px-4 rounded-xl border border-slate-200 text-slate-700 font-semibold text-xs hover:bg-slate-50 active:scale-95 transition-all cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowLogoutConfirm(false);
+                  logout();
+                }}
+                className="w-full py-2.5 px-4 rounded-xl bg-rose-600 text-white font-semibold text-xs hover:bg-rose-700 active:scale-95 shadow-sm shadow-rose-600/20 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Ya, Keluar</span>
+              </button>
             </div>
           </div>
         </div>

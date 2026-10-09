@@ -25,8 +25,10 @@ import {
   Copy,
   Check,
   ArrowRight,
+  CalendarClock,
 } from 'lucide-react';
 import { SupabaseSetupView } from '../integration/SupabaseSetupView';
+import { RecurringTransactionsView } from './RecurringTransactionsView';
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
 import { useToast } from '../layout/NotificationToast';
@@ -49,7 +51,7 @@ import type {
 } from '../../types';
 
 export interface MasterDataViewProps {
-  initialTab?: 'accounts' | 'sub_categories' | 'categories' | 'types' | 'parties' | 'users' | 'settings' | 'integrasi';
+  initialTab?: 'accounts' | 'sub_categories' | 'categories' | 'types' | 'parties' | 'users' | 'settings' | 'integrasi' | 'otomasi';
 }
 
 export function MasterDataView({ initialTab }: MasterDataViewProps = {}) {
@@ -60,6 +62,7 @@ export function MasterDataView({ initialTab }: MasterDataViewProps = {}) {
     subCategories,
     accounts,
     flowParties,
+    recurringTransactions,
     settings,
     appUsers,
     privacyMode,
@@ -85,7 +88,7 @@ export function MasterDataView({ initialTab }: MasterDataViewProps = {}) {
   const { showToast } = useToast();
 
   const [activeTab, setActiveTab] = useState<
-    'accounts' | 'sub_categories' | 'categories' | 'types' | 'parties' | 'users' | 'settings' | 'integrasi'
+    'accounts' | 'sub_categories' | 'categories' | 'types' | 'parties' | 'users' | 'settings' | 'integrasi' | 'otomasi'
   >(initialTab || 'accounts');
 
   const [settingsSidebarCollapsed, setSettingsSidebarCollapsed] = useState<boolean>(() => {
@@ -469,6 +472,13 @@ export function MasterDataView({ initialTab }: MasterDataViewProps = {}) {
       description: 'Pihak luar sumber pemasukan atau tujuan pembayaran',
     },
     {
+      id: 'otomasi',
+      label: 'Otomasi Transaksi',
+      icon: CalendarClock,
+      count: recurringTransactions.length,
+      description: 'Jadwal otomatis buat transaksi rutin harian / tiap tanggal tertentu beserta jam & nominal susulan',
+    },
+    {
       id: 'settings',
       label: 'Pengaturan Umum',
       icon: Settings,
@@ -619,7 +629,7 @@ export function MasterDataView({ initialTab }: MasterDataViewProps = {}) {
               </p>
             </div>
 
-            {isSuperAdmin && activeTab !== 'settings' && activeTab !== 'integrasi' && (
+            {isSuperAdmin && activeTab !== 'settings' && activeTab !== 'integrasi' && activeTab !== 'otomasi' && (
               <button
                 onClick={handleOpenAdd}
                 className="px-4 py-2 bg-[#1E6B4F] hover:bg-[#16523c] text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-xs transition-colors shrink-0 self-start sm:self-auto"
@@ -1221,6 +1231,11 @@ export function MasterDataView({ initialTab }: MasterDataViewProps = {}) {
         <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs p-2 sm:p-6 overflow-hidden">
           <SupabaseSetupView onBackToApp={() => setActiveTab('accounts')} />
         </div>
+      )}
+
+      {/* TAB 9: OTOMASI JADWAL TRANSAKSI BERULANG */}
+      {activeTab === 'otomasi' && (
+        <RecurringTransactionsView />
       )}
         </div>
       </div>

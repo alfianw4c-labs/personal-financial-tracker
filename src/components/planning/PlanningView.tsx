@@ -302,47 +302,48 @@ export function PlanningView() {
 
   return (
     <div className="w-full max-w-[1680px] mx-auto px-2.5 sm:px-4 lg:px-6 py-4 space-y-4">
-      {/* HEADER SECTION */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <CalendarRange className="w-5 h-5 text-[#1E6B4F]" />
-              <h1 className="text-xl font-bold text-slate-900 tracking-tight">
-                Perencanaan & Monitoring Realisasi Anggaran
-              </h1>
-            </div>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Atur batas wajar pengeluaran bulanan dan pantau realisasi transaksi aktual keluarga per kuartal.
-            </p>
+      {/* TITLE SECTION (Plain Text, Tanpa Card) */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <CalendarRange className="w-5 h-5 text-[#1E6B4F]" />
+            <h1 className="text-xl font-bold text-slate-900 tracking-tight">
+              Perencanaan Anggaran
+            </h1>
           </div>
-
-          <div className="flex items-center gap-2 flex-wrap">
-            {/* Year Selector */}
-            <select
-              value={selectedYear}
-              onChange={(e) => setSelectedYear(Number(e.target.value))}
-              className="px-3 py-2 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1E6B4F]"
-            >
-              {PLANNING_YEARS.map((yr) => (
-                <option key={yr} value={yr}>
-                  Tahun {yr}
-                </option>
-              ))}
-            </select>
-
-            <button
-              onClick={handleCopyPreviousQuarter}
-              className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 flex items-center gap-1.5 transition-colors shadow-2xs"
-            >
-              <Copy className="w-3.5 h-3.5 text-slate-500" />
-              <span>Salin dari Kuartal Sebelumnya</span>
-            </button>
-          </div>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Atur batas wajar pengeluaran bulanan dan pantau realisasi transaksi aktual keluarga per kuartal.
+          </p>
         </div>
 
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Year Selector */}
+          <select
+            value={selectedYear}
+            onChange={(e) => setSelectedYear(Number(e.target.value))}
+            className="px-3 py-2 text-xs font-semibold bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1E6B4F] shadow-2xs"
+          >
+            {PLANNING_YEARS.map((yr) => (
+              <option key={yr} value={yr}>
+                Tahun {yr}
+              </option>
+            ))}
+          </select>
+
+          <button
+            onClick={handleCopyPreviousQuarter}
+            className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 flex items-center gap-1.5 transition-colors shadow-2xs"
+          >
+            <Copy className="w-3.5 h-3.5 text-slate-500" />
+            <span>Salin dari Kuartal Sebelumnya</span>
+          </button>
+        </div>
+      </div>
+
+      {/* CARD KUARTAL & RINGKASAN RENCANA */}
+      <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-2xs space-y-4">
         {/* QUARTER TABS (Q1, Q2, Q3, Q4) */}
-        <div className="grid grid-cols-4 gap-2 pt-1">
+        <div className="grid grid-cols-4 gap-2">
           {[1, 2, 3, 4].map((q) => (
             <button
               key={q}

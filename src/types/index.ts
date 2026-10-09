@@ -128,6 +128,42 @@ export interface AppSettings {
   show_gold_savings: boolean;
 }
 
+export type RecurringFrequency = 'daily' | 'monthly_date';
+
+export interface RecurringTransaction {
+  id: string;
+  name: string; // Misal: "Biaya Admin Bank Tahunan / Bulanan"
+  frequency: RecurringFrequency; // 'daily' | 'monthly_date'
+  day_of_month?: number | null; // 1 - 31 (wajib jika monthly_date)
+  execution_time: string; // "HH:mm" misal "07:00", "20:00"
+  
+  // Data inputan transaksi persis sama
+  transaction_type_id: string;
+  category_id?: string | null;
+  sub_category_id?: string | null;
+  source_account_id?: string | null;
+  source_party_id?: string | null;
+  destination_account_id?: string | null;
+  destination_party_id?: string | null;
+  amount?: number | null; // Opsional! Bisa 0 atau null bila susulan
+  description?: string | null;
+  
+  is_active: boolean;
+  last_executed_at?: string | null;
+  last_executed_tx_id?: string | null;
+  created_by?: string | null;
+  created_at?: string;
+  updated_at?: string;
+
+  // Joined display helpers
+  type_name?: string;
+  type_kind?: TxKind;
+  category_name?: string;
+  sub_category_name?: string;
+  source_name?: string;
+  destination_name?: string;
+}
+
 export interface SupabaseConfig {
   url: string;
   anonKey: string;

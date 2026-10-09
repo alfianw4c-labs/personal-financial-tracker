@@ -158,3 +158,38 @@ export const INITIAL_PLAN_ITEMS: QuarterlyPlanItem[] = [
 
 // Data transaksi dimulai kosong (bersih) agar fokus ke input nyata di environment Supabase
 export const INITIAL_TRANSACTIONS: Transaction[] = [];
+
+export const INITIAL_RECURRING_TRANSACTIONS: import('../types').RecurringTransaction[] = [
+  {
+    id: 'r0000000-0000-0000-0000-000000000001',
+    name: 'Biaya Admin Bank Mandiri',
+    frequency: 'monthly_date',
+    day_of_month: 20,
+    execution_time: '08:00',
+    transaction_type_id: 'a0000000-0000-0000-0000-000000000002', // Pengeluaran
+    category_id: 'c0000000-0000-0000-0000-000000000003', // Tagihan Bulanan
+    sub_category_id: 'd0000000-0000-0000-0000-000000000011', // Biaya Admin Bank
+    source_account_id: 'e0000000-0000-0000-0000-000000000003', // Mandiri
+    destination_party_id: 'b0000000-0000-0000-0000-000000000007', // Admin/Pajak
+    amount: 12500,
+    description: 'Biaya administrasi bulanan rekening Bank Mandiri',
+    is_active: true,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: 'r0000000-0000-0000-0000-000000000002',
+    name: 'Iuran Sampah & Keamanan Warga',
+    frequency: 'monthly_date',
+    day_of_month: 5,
+    execution_time: '09:00',
+    transaction_type_id: 'a0000000-0000-0000-0000-000000000002', // Pengeluaran
+    category_id: 'c0000000-0000-0000-0000-000000000003', // Tagihan Bulanan
+    sub_category_id: 'd0000000-0000-0000-0000-000000000009', // Sampah & Iuran Warga
+    source_account_id: 'e0000000-0000-0000-0000-000000000008', // Cash Tagihan
+    destination_party_id: 'b0000000-0000-0000-0000-000000000005', // Pembelian/Pembayaran
+    amount: null, // Nominal opsional/susulan
+    description: 'Iuran RT dan sampah perumahan (nominal disesuaikan kwitansi)',
+    is_active: true,
+    created_at: new Date().toISOString(),
+  },
+];

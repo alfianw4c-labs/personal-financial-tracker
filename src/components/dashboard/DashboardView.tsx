@@ -20,6 +20,7 @@ import {
   ChevronUp,
   ArrowRight,
   ReceiptText,
+  Filter,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -78,6 +79,9 @@ export function DashboardView({ onNavigateToTransactions, onNavigateToPlanning }
 
   // Modal Flag Limit Detail
   const [showFlagModal, setShowFlagModal] = useState<boolean>(false);
+
+  // Modal / Popup Filter Waktu Mobile
+  const [showMobileFilterModal, setShowMobileFilterModal] = useState<boolean>(false);
 
   // State Evaluasi Anggaran di Dashboard
   const [filterOnlyExceeded, setFilterOnlyExceeded] = useState<boolean>(false);
@@ -482,12 +486,12 @@ export function DashboardView({ onNavigateToTransactions, onNavigateToPlanning }
 
   return (
     <div className="w-full max-w-[1680px] mx-auto px-2.5 sm:px-4 lg:px-6 py-4 space-y-4">
-      {/* FILTER HEADER (Semua Waktu, Pilih Bulan, atau Rentang Tanggal) */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-2xs">
+      {/* TITLE SECTION (Plain Text, Tanpa Card) */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
             <Calendar className="w-5 h-5 text-[#1E6B4F]" />
-            <h1 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
+            <h1 className="text-xl font-bold text-slate-900 tracking-tight">
               Dashboard Arus Kas
             </h1>
           </div>
@@ -496,15 +500,16 @@ export function DashboardView({ onNavigateToTransactions, onNavigateToPlanning }
           </p>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 flex-wrap">
+        {/* Filter Controls Desktop (Hidden on Mobile & Tablet) */}
+        <div className="hidden md:flex items-center gap-2.5 flex-wrap">
           {/* Mode Selector Tabs (All Time, Pilih Bulan, Rentang Tanggal) */}
-          <div className="flex items-center bg-slate-100 p-1 rounded-xl gap-1 self-start sm:self-auto">
+          <div className="flex items-center bg-white border border-slate-200 shadow-2xs p-1 rounded-xl gap-1">
             <button
               type="button"
               onClick={() => setFilterMode('all_time')}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                 filterMode === 'all_time'
-                  ? 'bg-white text-[#1E6B4F] font-bold shadow-xs'
+                  ? 'bg-slate-100 text-[#1E6B4F] font-bold shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -515,7 +520,7 @@ export function DashboardView({ onNavigateToTransactions, onNavigateToPlanning }
               onClick={() => setFilterMode('month')}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                 filterMode === 'month'
-                  ? 'bg-white text-[#1E6B4F] font-bold shadow-xs'
+                  ? 'bg-slate-100 text-[#1E6B4F] font-bold shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -526,7 +531,7 @@ export function DashboardView({ onNavigateToTransactions, onNavigateToPlanning }
               onClick={() => setFilterMode('range')}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                 filterMode === 'range'
-                  ? 'bg-white text-[#1E6B4F] font-bold shadow-xs'
+                  ? 'bg-slate-100 text-[#1E6B4F] font-bold shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -541,7 +546,7 @@ export function DashboardView({ onNavigateToTransactions, onNavigateToPlanning }
               <select
                 value={selectedMonth}
                 onChange={(e) => setSelectedMonth(Number(e.target.value))}
-                className="px-3 py-2 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1E6B4F] cursor-pointer"
+                className="px-3 py-2 text-xs font-semibold bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1E6B4F] shadow-2xs cursor-pointer"
               >
                 {INDO_MONTHS.map((name, idx) => (
                   <option key={idx + 1} value={idx + 1}>
@@ -554,7 +559,7 @@ export function DashboardView({ onNavigateToTransactions, onNavigateToPlanning }
               <select
                 value={selectedYear}
                 onChange={(e) => setSelectedYear(Number(e.target.value))}
-                className="px-3 py-2 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1E6B4F] cursor-pointer"
+                className="px-3 py-2 text-xs font-semibold bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1E6B4F] shadow-2xs cursor-pointer"
               >
                 {availableYears.map((yr) => (
                   <option key={yr} value={yr}>
@@ -567,7 +572,7 @@ export function DashboardView({ onNavigateToTransactions, onNavigateToPlanning }
 
           {filterMode === 'range' && (
             <div className="flex items-center gap-2 flex-wrap">
-              <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-2.5 py-1.5 rounded-xl">
+              <div className="flex items-center gap-1.5 bg-white border border-slate-200 px-2.5 py-1.5 rounded-xl shadow-2xs">
                 <span className="text-[11px] font-semibold text-slate-500">Dari:</span>
                 <input
                   type="date"
@@ -576,7 +581,7 @@ export function DashboardView({ onNavigateToTransactions, onNavigateToPlanning }
                   className="text-xs font-semibold text-slate-800 bg-transparent focus:outline-none cursor-pointer"
                 />
               </div>
-              <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-2.5 py-1.5 rounded-xl">
+              <div className="flex items-center gap-1.5 bg-white border border-slate-200 px-2.5 py-1.5 rounded-xl shadow-2xs">
                 <span className="text-[11px] font-semibold text-slate-500">Sampai:</span>
                 <input
                   type="date"
@@ -589,89 +594,86 @@ export function DashboardView({ onNavigateToTransactions, onNavigateToPlanning }
           )}
 
           {filterMode === 'all_time' && (
-            <span className="text-xs font-medium text-emerald-800 bg-emerald-50 px-3 py-2 rounded-xl border border-emerald-200">
+            <span className="text-xs font-medium text-emerald-800 bg-emerald-50 px-3 py-2 rounded-xl border border-emerald-200 shadow-2xs">
               Total {filteredTransactions.length} Transaksi
             </span>
           )}
         </div>
       </div>
 
-      {/* TOP METRICS: SELURUH KEKAYAAN, SALDO BERSIH, TABUNGAN, RUNWAY */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* TOP METRICS: 2 KOLOM DI MOBILE & TABLET, 4 KOLOM DI DESKTOP */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {/* Seluruh Kekayaan */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-2xs relative overflow-hidden flex flex-col justify-between">
+        <div className="bg-white rounded-2xl border border-slate-200 p-3.5 sm:p-5 shadow-2xs relative overflow-hidden flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500">Seluruh Kekayaan</span>
-            <div className="w-8 h-8 rounded-xl bg-emerald-50 text-[#1E6B4F] flex items-center justify-center">
-              <Wallet className="w-4 h-4" />
+            <span className="text-[11px] sm:text-xs font-semibold text-slate-500 truncate">Seluruh Kekayaan</span>
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-emerald-50 text-[#1E6B4F] flex items-center justify-center shrink-0">
+              <Wallet className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </div>
           </div>
-          <div className="mt-3">
-            <div className="text-2xl font-bold tracking-tight text-slate-900 tabular-nums">
+          <div className="mt-2 sm:mt-3">
+            <div className="text-base sm:text-xl md:text-2xl font-bold tracking-tight text-slate-900 tabular-nums truncate">
               {formatRupiah(balancesByGroup.totalWealth, privacyMode)}
             </div>
-            <p className="text-[11px] text-slate-500 mt-1">
-              Tabungan + Saldo Bersih (Kas/Bank - Hutang)
+            <p className="text-[10px] sm:text-[11px] text-slate-500 mt-0.5 sm:mt-1 truncate">
+              Tabungan + Saldo Bersih
             </p>
           </div>
         </div>
 
         {/* Saldo Bersih */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-2xs flex flex-col justify-between">
+        <div className="bg-white rounded-2xl border border-slate-200 p-3.5 sm:p-5 shadow-2xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500">Saldo Bersih Operasional</span>
-            <div className="w-8 h-8 rounded-xl bg-emerald-50 text-[#1E6B4F] flex items-center justify-center">
-              <Coins className="w-4 h-4" />
+            <span className="text-[11px] sm:text-xs font-semibold text-slate-500 truncate">Saldo Bersih</span>
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-emerald-50 text-[#1E6B4F] flex items-center justify-center shrink-0">
+              <Coins className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </div>
           </div>
-          <div className="mt-3">
-            <div className="text-2xl font-bold tracking-tight text-[#1E6B4F] tabular-nums">
+          <div className="mt-2 sm:mt-3">
+            <div className="text-base sm:text-xl md:text-2xl font-bold tracking-tight text-[#1E6B4F] tabular-nums truncate">
               {formatRupiah(balancesByGroup.netBalance, privacyMode)}
             </div>
-            <div className="text-[11px] text-slate-500 mt-1 flex items-center gap-1">
-              <span>Kas & Bank: {formatRupiah(balancesByGroup.liquidCashAndBank, privacyMode)}</span>
-              {balancesByGroup.paylater < 0 && (
-                <span className="text-amber-700">· Hutang: {formatRupiah(Math.abs(balancesByGroup.paylater), privacyMode)}</span>
-              )}
+            <div className="text-[10px] sm:text-[11px] text-slate-500 mt-0.5 sm:mt-1 truncate">
+              <span>Kas/Bank: {formatRupiah(balancesByGroup.liquidCashAndBank, privacyMode)}</span>
             </div>
           </div>
         </div>
 
         {/* Total Tabungan */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-2xs flex flex-col justify-between">
+        <div className="bg-white rounded-2xl border border-slate-200 p-3.5 sm:p-5 shadow-2xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500">Total Tabungan</span>
-            <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
-              <PiggyBank className="w-4 h-4" />
+            <span className="text-[11px] sm:text-xs font-semibold text-slate-500 truncate">Total Tabungan</span>
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+              <PiggyBank className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </div>
           </div>
-          <div className="mt-3">
-            <div className="text-2xl font-bold tracking-tight text-blue-600 tabular-nums">
+          <div className="mt-2 sm:mt-3">
+            <div className="text-base sm:text-xl md:text-2xl font-bold tracking-tight text-blue-600 tabular-nums truncate">
               {formatRupiah(balancesByGroup.tabungan, privacyMode)}
             </div>
-            <p className="text-[11px] text-slate-500 mt-1">
-              {savingsGoalsBreakdown.length} Akun Simpanan Terpisah
+            <p className="text-[10px] sm:text-[11px] text-slate-500 mt-0.5 sm:mt-1 truncate">
+              {savingsGoalsBreakdown.length} Akun Simpanan
             </p>
           </div>
         </div>
 
         {/* Hidup Tanpa Gaji */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-2xs flex flex-col justify-between">
+        <div className="bg-white rounded-2xl border border-slate-200 p-3.5 sm:p-5 shadow-2xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500">Hidup Tanpa Gaji</span>
-            <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
-              <Shield className="w-4 h-4" />
+            <span className="text-[11px] sm:text-xs font-semibold text-slate-500 truncate">Hidup Tanpa Gaji</span>
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+              <Shield className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </div>
           </div>
-          <div className="mt-3">
-            <div className="flex items-baseline gap-1.5">
-              <span className="text-2xl font-bold tracking-tight text-slate-900 tabular-nums">
+          <div className="mt-2 sm:mt-3">
+            <div className="flex items-baseline gap-1">
+              <span className="text-base sm:text-xl md:text-2xl font-bold tracking-tight text-slate-900 tabular-nums">
                 {runwayMetric.runwayMonths}
               </span>
-              <span className="text-sm font-semibold text-slate-600">Bulan</span>
+              <span className="text-xs sm:text-sm font-semibold text-slate-600">Bulan</span>
             </div>
-            <p className="text-[11px] text-slate-500 mt-1">
-              {runwayMetric.accountName} / Rata-rata Pengeluaran
+            <p className="text-[10px] sm:text-[11px] text-slate-500 mt-0.5 sm:mt-1 truncate">
+              {runwayMetric.accountName}
             </p>
           </div>
         </div>
@@ -1015,15 +1017,15 @@ export function DashboardView({ onNavigateToTransactions, onNavigateToPlanning }
         effectiveQuarter={effectiveQuarter}
       />
 
-      {/* SALDO AKUN BERWARNA PER GRUP */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-4">
+      {/* SALDO AKUN BERWARNA PER GRUP (2 KOLOM DI MOBILE & TABLET, SIMPLIFIED SEPERTI DI TRANSAKSI) */}
+      <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-6 shadow-2xs space-y-3.5">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-bold text-slate-900">
             Saldo Akun Keuangan (Cash, Bank, Tabungan, PayLater)
           </h2>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
           {accounts
             .filter((a) => a.is_active)
             .map((acc) => {
@@ -1040,7 +1042,7 @@ export function DashboardView({ onNavigateToTransactions, onNavigateToPlanning }
                 badgeColor = 'bg-blue-50 text-blue-800 border-blue-200';
                 Icon = PiggyBank;
               } else if (acc.group_type === 'paylater') {
-                groupBadge = 'PayLater/CC';
+                groupBadge = 'PayLater';
                 badgeColor = 'bg-amber-50 text-amber-800 border-amber-200';
                 Icon = CreditCard;
               }
@@ -1048,23 +1050,23 @@ export function DashboardView({ onNavigateToTransactions, onNavigateToPlanning }
               return (
                 <div
                   key={acc.id}
-                  className="p-4 rounded-xl border border-slate-200 bg-white hover:border-slate-300 transition-colors flex flex-col justify-between"
+                  className="p-3 rounded-xl border border-slate-200 bg-white hover:border-slate-300 transition-colors flex flex-col justify-between shadow-2xs"
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <span className="font-bold text-slate-900 text-xs block">{acc.name}</span>
-                      <span className="text-[11px] text-slate-400">
-                        {acc.owner_label ? `Milik: ${acc.owner_label}` : acc.purpose || '-'}
+                  <div className="flex items-center justify-between gap-1 w-full">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <Icon className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                      <span className="font-bold text-slate-900 text-xs truncate" title={acc.name}>
+                        {acc.name}
                       </span>
                     </div>
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold ${badgeColor}`}>
+                    <span className={`text-[9px] px-1.5 py-0.5 rounded font-semibold border shrink-0 ${badgeColor}`}>
                       {groupBadge}
                     </span>
                   </div>
-                  <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between">
-                    <span className="text-[11px] text-slate-500">Saldo:</span>
+
+                  <div className="mt-2 flex items-baseline justify-between w-full">
                     <span
-                      className={`text-sm font-bold tabular-nums ${
+                      className={`text-xs sm:text-sm font-extrabold tabular-nums truncate ${
                         acc.group_type === 'paylater'
                           ? 'text-amber-700'
                           : acc.group_type === 'tabungan'
@@ -1081,8 +1083,8 @@ export function DashboardView({ onNavigateToTransactions, onNavigateToPlanning }
         </div>
       </div>
 
-      {/* TRANSAKSI TERAKHIR */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-4">
+      {/* TRANSAKSI TERAKHIR (RAPI: INFORMASI LAINNYA DI BAWAH PADA MOBILE & TABLET) */}
+      <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-6 shadow-2xs space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-bold text-slate-900">
             Transaksi Terakhir
@@ -1107,43 +1109,66 @@ export function DashboardView({ onNavigateToTransactions, onNavigateToPlanning }
               const isExpense = tx.type_kind === 'expense';
 
               return (
-                <div key={tx.id} className="py-3 flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-3">
+                <div key={tx.id} className="py-3 flex flex-col md:flex-row md:items-center justify-between gap-1.5 md:gap-4">
+                  {/* Baris Atas: Kategori/Sub Kategori + Nominal (di kanan atas pada Mobile/Tablet) */}
+                  <div className="flex items-center justify-between gap-3 w-full md:w-auto">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div
+                        className={`w-8 h-8 md:w-9 md:h-9 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 ${
+                          isIncome
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : isExpense
+                            ? 'bg-rose-100 text-rose-800'
+                            : 'bg-blue-100 text-blue-800'
+                        }`}
+                      >
+                        {isIncome ? '+' : isExpense ? '-' : '⇄'}
+                      </div>
+                      <span className="text-xs sm:text-sm font-bold text-slate-900 truncate">
+                        {tx.sub_category_name || tx.category_name || tx.type_name}
+                      </span>
+                    </div>
+
+                    {/* Nominal di kanan atas (tampil di mobile & tablet) */}
                     <div
-                      className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 ${
-                        isIncome
-                          ? 'bg-emerald-100 text-emerald-800'
-                          : isExpense
-                          ? 'bg-rose-100 text-rose-800'
-                          : 'bg-blue-100 text-blue-800'
+                      className={`md:hidden text-xs sm:text-sm font-extrabold tabular-nums whitespace-nowrap shrink-0 ${
+                        isIncome ? 'text-emerald-700' : isExpense ? 'text-rose-700' : 'text-blue-700'
                       }`}
                     >
-                      {isIncome ? '+' : isExpense ? '-' : '⇄'}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-slate-900">
-                          {tx.sub_category_name || tx.category_name || tx.type_name}
-                        </span>
-                        <span className="text-[11px] text-slate-400">·</span>
-                        <span className="text-[11px] text-slate-500 font-mono">
-                          {formatDateID(tx.tx_date)}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-slate-500 truncate max-w-xs sm:max-w-md">
-                        {tx.source_name} → {tx.destination_name}
-                        {tx.description ? ` (${tx.description})` : ''}
-                      </p>
+                      {isIncome ? '+' : isExpense ? '-' : ''}
+                      {formatRupiah(tx.amount, privacyMode)}
                     </div>
                   </div>
 
-                  <div
-                    className={`text-xs font-bold tabular-nums whitespace-nowrap ${
-                      isIncome ? 'text-emerald-700' : isExpense ? 'text-rose-700' : 'text-blue-700'
-                    }`}
-                  >
-                    {isIncome ? '+' : isExpense ? '-' : ''}
-                    {formatRupiah(tx.amount, privacyMode)}
+                  {/* Informasi Lainnya dipindahkan di bawahnya (Tanggal, Sumber -> Tujuan, Keterangan) */}
+                  <div className="flex items-center justify-between md:justify-end gap-2 text-[11px] text-slate-500 pl-10.5 md:pl-0 w-full md:w-auto">
+                    <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap min-w-0">
+                      <span className="font-mono text-slate-600 font-medium shrink-0">
+                        {formatDateID(tx.tx_date)}
+                      </span>
+                      <span className="text-slate-300">·</span>
+                      <span className="text-slate-600 truncate max-w-[200px] sm:max-w-xs md:max-w-sm">
+                        {tx.source_name} → {tx.destination_name}
+                      </span>
+                      {tx.description && (
+                        <>
+                          <span className="text-slate-300">·</span>
+                          <span className="italic text-slate-400 truncate max-w-[140px] sm:max-w-xs">
+                            {tx.description}
+                          </span>
+                        </>
+                      )}
+                    </div>
+
+                    {/* Nominal di desktop (tampil di sebelah kanan baris) */}
+                    <div
+                      className={`hidden md:block pl-4 text-xs sm:text-sm font-extrabold tabular-nums whitespace-nowrap shrink-0 ${
+                        isIncome ? 'text-emerald-700' : isExpense ? 'text-rose-700' : 'text-blue-700'
+                      }`}
+                    >
+                      {isIncome ? '+' : isExpense ? '-' : ''}
+                      {formatRupiah(tx.amount, privacyMode)}
+                    </div>
                   </div>
                 </div>
               );
@@ -1215,6 +1240,215 @@ export function DashboardView({ onNavigateToTransactions, onNavigateToPlanning }
                 className="px-4 py-2 text-xs font-semibold text-white bg-[#1E6B4F] hover:bg-[#16523c] rounded-xl"
               >
                 Buka Halaman Perencanaan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* FLOATING ACTION BUTTON (FAB) FILTER UNTUK MOBILE & TABLET (ICON ONLY) */}
+      <button
+        type="button"
+        onClick={() => setShowMobileFilterModal(true)}
+        className="md:hidden fixed bottom-20 right-4 z-40 w-12 h-12 rounded-full bg-[#1E6B4F] hover:bg-[#16523c] text-white shadow-xl shadow-emerald-950/30 flex items-center justify-center cursor-pointer active:scale-90 transition-all border border-emerald-600/30 backdrop-blur-xs"
+        title="Buka Filter Periode Waktu"
+        aria-label="Filter Waktu"
+      >
+        <Filter className="w-5 h-5 text-white" />
+      </button>
+
+      {/* POPUP / MODAL FILTER WAKTU UNTUK MOBILE */}
+      {showMobileFilterModal && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="bg-white rounded-t-3xl sm:rounded-2xl max-w-md w-full p-5 sm:p-6 shadow-2xl border border-slate-200 max-h-[90vh] overflow-y-auto animate-in fade-in duration-200">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-3.5 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-emerald-50 text-[#1E6B4F]">
+                  <Filter className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-base">Filter Periode Waktu</h3>
+                  <p className="text-[11px] text-slate-500">Sesuaikan rentang data transaksi dashboard</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowMobileFilterModal(false)}
+                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="py-4 space-y-4">
+              {/* Pilihan Mode Filter */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-2">
+                  Pilih Mode Waktu
+                </label>
+                <div className="grid grid-cols-3 gap-1.5 bg-slate-100 p-1 rounded-xl">
+                  <button
+                    type="button"
+                    onClick={() => setFilterMode('month')}
+                    className={`py-2 px-1 rounded-lg text-xs font-semibold transition-all cursor-pointer text-center ${
+                      filterMode === 'month'
+                        ? 'bg-white text-[#1E6B4F] shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Pilih Bulan
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFilterMode('range')}
+                    className={`py-2 px-1 rounded-lg text-xs font-semibold transition-all cursor-pointer text-center ${
+                      filterMode === 'range'
+                        ? 'bg-white text-[#1E6B4F] shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Rentang
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFilterMode('all_time')}
+                    className={`py-2 px-1 rounded-lg text-xs font-semibold transition-all cursor-pointer text-center ${
+                      filterMode === 'all_time'
+                        ? 'bg-white text-[#1E6B4F] shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Semua
+                  </button>
+                </div>
+              </div>
+
+              {/* Detail Kontrol: Mode Bulan */}
+              {filterMode === 'month' && (
+                <div className="space-y-3 bg-slate-50/70 p-3.5 rounded-xl border border-slate-200/70">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-slate-700">Pilih Bulan & Tahun</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const now = new Date();
+                        setSelectedMonth(now.getMonth() + 1);
+                        setSelectedYear(now.getFullYear());
+                      }}
+                      className="text-[11px] font-semibold text-[#1E6B4F] hover:underline cursor-pointer"
+                    >
+                      Bulan Ini
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[11px] font-medium text-slate-500 mb-1">
+                        Bulan
+                      </label>
+                      <select
+                        value={selectedMonth}
+                        onChange={(e) => setSelectedMonth(Number(e.target.value))}
+                        className="w-full px-3 py-2 text-xs font-semibold bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1E6B4F]"
+                      >
+                        {INDO_MONTHS.map((name, idx) => (
+                          <option key={idx + 1} value={idx + 1}>
+                            {name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-medium text-slate-500 mb-1">
+                        Tahun
+                      </label>
+                      <select
+                        value={selectedYear}
+                        onChange={(e) => setSelectedYear(Number(e.target.value))}
+                        className="w-full px-3 py-2 text-xs font-semibold bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1E6B4F]"
+                      >
+                        {availableYears.map((yr) => (
+                          <option key={yr} value={yr}>
+                            Tahun {yr}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="pt-1 text-[11px] text-slate-500 flex items-center justify-between">
+                    <span>Target Kuartal:</span>
+                    <span className="font-semibold text-slate-800">
+                      Q{Math.ceil(selectedMonth / 3)} {selectedYear}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Detail Kontrol: Mode Rentang Tanggal */}
+              {filterMode === 'range' && (
+                <div className="space-y-3 bg-slate-50/70 p-3.5 rounded-xl border border-slate-200/70">
+                  <span className="text-xs font-semibold text-slate-700 block">
+                    Pilih Rentang Tanggal
+                  </span>
+
+                  <div className="space-y-2.5">
+                    <div>
+                      <label className="block text-[11px] font-medium text-slate-500 mb-1">
+                        Dari Tanggal
+                      </label>
+                      <input
+                        type="date"
+                        value={startDate}
+                        onChange={(e) => setStartDate(e.target.value)}
+                        className="w-full px-3 py-2 text-xs font-semibold bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1E6B4F]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-medium text-slate-500 mb-1">
+                        Sampai Tanggal
+                      </label>
+                      <input
+                        type="date"
+                        value={endDate}
+                        onChange={(e) => setEndDate(e.target.value)}
+                        className="w-full px-3 py-2 text-xs font-semibold bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1E6B4F]"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Detail Kontrol: Mode Semua Waktu */}
+              {filterMode === 'all_time' && (
+                <div className="p-4 rounded-xl bg-emerald-50/70 border border-emerald-200/70 text-center space-y-1">
+                  <span className="text-xs font-bold text-emerald-900 block">
+                    Mode Semua Waktu Aktif
+                  </span>
+                  <p className="text-[11px] text-emerald-700">
+                    Menampilkan total keseluruhan {filteredTransactions.length} transaksi yang tercatat di akun Anda.
+                  </p>
+                </div>
+              )}
+
+              {/* Badge Periode Aktif */}
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between text-xs">
+                <span className="text-slate-500">Periode Terpilih:</span>
+                <span className="font-bold text-[#1E6B4F]">{periodLabel}</span>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setShowMobileFilterModal(false)}
+                className="w-full py-2.5 px-4 text-xs font-bold text-white bg-[#1E6B4F] hover:bg-[#16523c] rounded-xl shadow-xs transition-colors cursor-pointer text-center active:scale-98"
+              >
+                Terapkan & Lihat Dashboard
               </button>
             </div>
           </div>

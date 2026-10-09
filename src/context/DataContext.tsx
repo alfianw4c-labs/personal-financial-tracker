@@ -12,6 +12,7 @@ import type {
   AppSettings,
   AppUser,
   MonthlyLimitStatus,
+  RecurringTransaction,
 } from '../types';
 import { getSupabaseClient, getSupabaseConfig, fetchServerSupabaseConfig } from '../lib/supabase';
 import {
@@ -25,6 +26,7 @@ import {
   INITIAL_PLAN_ITEMS,
   INITIAL_TRANSACTIONS,
   INITIAL_USERS,
+  INITIAL_RECURRING_TRANSACTIONS,
 } from '../lib/mockData';
 import { useAuth } from './AuthContext';
 
@@ -43,6 +45,7 @@ interface DataContextType {
   accounts: Account[];
   flowParties: FlowParty[];
   transactions: Transaction[];
+  recurringTransactions: RecurringTransaction[];
   quarterlyPlans: QuarterlyPlan[];
   quarterlyPlanItems: QuarterlyPlanItem[];
   settings: AppSettings;
@@ -66,6 +69,12 @@ interface DataContextType {
   addTransaction: (tx: Omit<Transaction, 'id' | 'created_at'>) => Promise<{ success: boolean; id?: string; error?: string; limitWarning?: LimitExceedCheckResult }>;
   updateTransaction: (id: string, tx: Partial<Transaction>) => Promise<{ success: boolean; error?: string; limitWarning?: LimitExceedCheckResult }>;
   deleteTransaction: (id: string) => Promise<{ success: boolean; error?: string }>;
+
+  // Recurring Transactions CRUD & Execution
+  saveRecurringTransaction: (item: Partial<RecurringTransaction>) => Promise<{ success: boolean; error?: string }>;
+  deleteRecurringTransaction: (id: string) => Promise<{ success: boolean; error?: string }>;
+  toggleRecurringStatus: (id: string, active: boolean) => Promise<{ success: boolean; error?: string }>;
+  triggerRecurringExecution: (id?: string) => Promise<{ success: boolean; count: number; error?: string }>;
 
   // Master Data CRUD
   saveTransactionType: (item: Partial<TransactionType>) => Promise<{ success: boolean; error?: string }>;
@@ -109,6 +118,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [flowParties, setFlowParties] = useState<FlowParty[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [recurringTransactions, setRecurringTransactions] = useState<RecurringTransaction[]>([]);
   const [quarterlyPlans, setQuarterlyPlans] = useState<QuarterlyPlan[]>([]);
   const [quarterlyPlanItems, setQuarterlyPlanItems] = useState<QuarterlyPlanItem[]>([]);
   const [settings, setSettings] = useState<AppSettings>(INITIAL_SETTINGS);
@@ -143,6 +153,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setSettings(getStored('settings', INITIAL_SETTINGS));
       setQuarterlyPlans(getStored('quarterly_plans', INITIAL_PLANS));
       setQuarterlyPlanItems(getStored('quarterly_plan_items', INITIAL_PLAN_ITEMS));
+      setRecurringTransactions(getStored('recurring_transactions', INITIAL_RECURRING_TRANSACTIONS));
       const storedTxs = getStored('transactions', []);
       const cleanTxs = Array.isArray(storedTxs)
         ? storedTxs.filter((t: any) => !t.id?.startsWith('tx-0'))
@@ -196,6 +207,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         planItemsRes,
         settingsRes,
         usersRes,
+        recRes,
       ] = await Promise.all([
         client.from('transaction_types').select('*').order('name'),
         client.from('flow_parties').select('*').order('sort_order'),
@@ -207,6 +219,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         client.from('quarterly_plan_items').select('*'),
         client.from('settings').select('*').maybeSingle(),
         client.from('app_users').select('*').order('full_name'),
+        client.from('recurring_transactions').select('*').order('created_at', { ascending: false }),
       ]);
 
       if (usersRes.error) {
@@ -262,6 +275,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
       if (settingsRes.data) {
         setSettings(settingsRes.data);
+      }
+
+      if (recRes.data && recRes.data.length > 0) {
+        setRecurringTransactions(recRes.data);
+      } else if (!recRes.error) {
+        setRecurringTransactions(INITIAL_RECURRING_TRANSACTIONS);
       }
 
       if (usersRes.data && usersRes.data.length > 0) {
@@ -323,6 +342,45 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       };
     });
   }, [transactions, transactionTypes, categories, subCategories, accounts, flowParties]);
+
+  // Join recurring transactions with master data for display
+  const enrichedRecurringTransactions = useMemo(() => {
+    const typeMap = new Map(transactionTypes.map((t) => [t.id, t]));
+    const catMap = new Map(categories.map((c) => [c.id, c]));
+    const subCatMap = new Map(subCategories.map((s) => [s.id, s]));
+    const accMap = new Map(accounts.map((a) => [a.id, a]));
+    const partyMap = new Map(flowParties.map((p) => [p.id, p]));
+
+    return recurringTransactions.map((r) => {
+      const type = typeMap.get(r.transaction_type_id);
+      const cat = r.category_id ? catMap.get(r.category_id) : undefined;
+      const subCat = r.sub_category_id ? subCatMap.get(r.sub_category_id) : undefined;
+
+      let sourceName = '-';
+      let destName = '-';
+
+      if (type?.kind === 'income') {
+        sourceName = r.source_party_id ? partyMap.get(r.source_party_id)?.name || '-' : '-';
+        destName = r.destination_account_id ? accMap.get(r.destination_account_id)?.name || '-' : '-';
+      } else if (type?.kind === 'expense') {
+        sourceName = r.source_account_id ? accMap.get(r.source_account_id)?.name || '-' : '-';
+        destName = r.destination_party_id ? partyMap.get(r.destination_party_id)?.name || '-' : '-';
+      } else if (type?.kind === 'transfer') {
+        sourceName = r.source_account_id ? accMap.get(r.source_account_id)?.name || '-' : '-';
+        destName = r.destination_account_id ? accMap.get(r.destination_account_id)?.name || '-' : '-';
+      }
+
+      return {
+        ...r,
+        type_name: type?.name || '-',
+        type_kind: type?.kind || 'expense',
+        category_name: cat?.name || '-',
+        sub_category_name: subCat?.name || '-',
+        source_name: sourceName,
+        destination_name: destName,
+      };
+    });
+  }, [recurringTransactions, transactionTypes, categories, subCategories, accounts, flowParties]);
 
   // Hitung saldo akun dinamis (opening_balance + masuk - keluar)
   const getAccountBalance = useCallback(
@@ -589,6 +647,183 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     saveLocalStore('transactions', updated);
     return { success: true };
   };
+
+  // ==========================================
+  // RECURRING TRANSACTIONS CRUD & EXECUTION
+  // ==========================================
+  const saveRecurringTransaction = async (item: Partial<RecurringTransaction>) => {
+    const client = getSupabaseClient();
+    const id = item.id || (crypto.randomUUID ? crypto.randomUUID() : `rec-${Date.now()}`);
+    const payload: Partial<RecurringTransaction> = {
+      ...item,
+      id,
+      name: (item.name || '').trim(),
+      frequency: item.frequency || 'monthly_date',
+      day_of_month: item.frequency === 'daily' ? null : (item.day_of_month ?? 20),
+      execution_time: item.execution_time || '07:00',
+      transaction_type_id: item.transaction_type_id,
+      category_id: item.category_id || null,
+      sub_category_id: item.sub_category_id || null,
+      source_account_id: item.source_account_id || null,
+      source_party_id: item.source_party_id || null,
+      destination_account_id: item.destination_account_id || null,
+      destination_party_id: item.destination_party_id || null,
+      amount: item.amount !== undefined && item.amount !== null && !isNaN(item.amount) ? item.amount : null,
+      description: item.description?.trim() || null,
+      is_active: item.is_active ?? true,
+      created_by: currentUser?.id || null,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (client) {
+      try {
+        const { error } = await client.from('recurring_transactions').upsert(payload);
+        if (error) {
+          console.error('Error saving recurring transaction to Supabase:', error);
+          // Fallback ke local state jika tabel belum dimigrasi di Supabase
+          const exists = recurringTransactions.some((r) => r.id === id);
+          const updated = exists
+            ? recurringTransactions.map((r) => (r.id === id ? { ...r, ...payload } : r))
+            : [{ ...payload, created_at: new Date().toISOString() } as RecurringTransaction, ...recurringTransactions];
+          setRecurringTransactions(updated);
+          saveLocalStore('recurring_transactions', updated);
+          return { success: true };
+        }
+        await refetchAll();
+        return { success: true };
+      } catch (err: any) {
+        return { success: false, error: err.message };
+      }
+    }
+
+    // Local fallback
+    const exists = recurringTransactions.some((r) => r.id === id);
+    const updated = exists
+      ? recurringTransactions.map((r) => (r.id === id ? { ...r, ...payload } : r))
+      : [{ ...payload, created_at: new Date().toISOString() } as RecurringTransaction, ...recurringTransactions];
+    setRecurringTransactions(updated);
+    saveLocalStore('recurring_transactions', updated);
+    return { success: true };
+  };
+
+  const deleteRecurringTransaction = async (id: string) => {
+    const client = getSupabaseClient();
+    if (client) {
+      try {
+        const { error } = await client.from('recurring_transactions').delete().eq('id', id);
+        if (error) {
+          console.warn('Gagal menghapus dari Supabase, menghapus dari local:', error);
+        }
+        await refetchAll();
+      } catch (e) {
+        // lanjut fallback
+      }
+    }
+    const updated = recurringTransactions.filter((r) => r.id !== id);
+    setRecurringTransactions(updated);
+    saveLocalStore('recurring_transactions', updated);
+    return { success: true };
+  };
+
+  const toggleRecurringStatus = async (id: string, active: boolean) => {
+    const target = recurringTransactions.find((r) => r.id === id);
+    if (!target) return { success: false, error: 'Jadwal tidak ditemukan' };
+    return saveRecurringTransaction({
+      ...target,
+      is_active: active,
+    });
+  };
+
+  // Eksekusi manual atau otomatis jadwal otomasi transaksi yang jatuh tempo
+  const triggerRecurringExecution = useCallback(
+    async (specificId?: string): Promise<{ success: boolean; count: number; error?: string }> => {
+      const now = new Date();
+      // Format YYYY-MM-DD
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const dateNum = now.getDate();
+      const dateStr = String(dateNum).padStart(2, '0');
+      const todayISO = `${year}-${month}-${dateStr}`;
+
+      const currentHours = String(now.getHours()).padStart(2, '0');
+      const currentMinutes = String(now.getMinutes()).padStart(2, '0');
+      const currentTimeStr = `${currentHours}:${currentMinutes}`;
+
+      const client = getSupabaseClient();
+
+      // Coba panggil SQL stored procedure jika Supabase aktif dan function tersedia
+      if (client && !specificId) {
+        try {
+          const { data, error } = await client.rpc('process_due_recurring_transactions');
+          if (!error && data && data.length > 0) {
+            const count = data[0]?.created_count || 0;
+            if (count > 0) {
+              await refetchAll();
+            }
+            return { success: true, count };
+          }
+        } catch (rpcErr) {
+          // Fallback ke pemrosesan client-side jika RPC belum dibuat
+        }
+      }
+
+      // Client-side execution loop (berjalan di browser / fallback offline)
+      const listToEvaluate = specificId
+        ? recurringTransactions.filter((r) => r.id === specificId && r.is_active)
+        : recurringTransactions.filter((r) => r.is_active);
+
+      let createdCount = 0;
+
+      for (const rec of listToEvaluate) {
+        // Cek apakah jatuh tempo
+        const isDaily = rec.frequency === 'daily';
+        const isMonthlyDate = rec.frequency === 'monthly_date' && Number(rec.day_of_month) === dateNum;
+
+        // Cek apakah sudah pernah dieksekusi hari ini
+        const alreadyExecutedToday = rec.last_executed_at && rec.last_executed_at.startsWith(todayISO);
+
+        const timeReached = specificId ? true : currentTimeStr >= (rec.execution_time || '00:00');
+
+        if ((isDaily || isMonthlyDate) && (!alreadyExecutedToday || specificId) && timeReached) {
+          const newTxPayload = {
+            tx_date: todayISO,
+            transaction_type_id: rec.transaction_type_id,
+            category_id: rec.category_id || null,
+            sub_category_id: rec.sub_category_id || null,
+            source_account_id: rec.source_account_id || null,
+            source_party_id: rec.source_party_id || null,
+            destination_account_id: rec.destination_account_id || null,
+            destination_party_id: rec.destination_party_id || null,
+            amount: rec.amount !== null && rec.amount !== undefined ? Number(rec.amount) : 0,
+            description: rec.description || `${rec.name} (Otomatis)`,
+          };
+
+          const addRes = await addTransaction(newTxPayload);
+          if (addRes.success) {
+            createdCount++;
+            // Update last_executed_at
+            const updatedRec = {
+              ...rec,
+              last_executed_at: new Date().toISOString(),
+              last_executed_tx_id: addRes.id || null,
+            };
+            await saveRecurringTransaction(updatedRec);
+          }
+        }
+      }
+
+      return { success: true, count: createdCount };
+    },
+    [recurringTransactions, addTransaction]
+  );
+
+  // Background ticker yang memeriksa apakah ada transaksi jatuh tempo tiap 60 detik
+  useEffect(() => {
+    const timer = setInterval(() => {
+      triggerRecurringExecution();
+    }, 60000);
+    return () => clearInterval(timer);
+  }, [triggerRecurringExecution]);
 
   // ==========================================
   // MASTER DATA CRUD (With dependency checks)
@@ -1028,6 +1263,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         accounts: enrichedAccounts,
         flowParties,
         transactions: enrichedTransactions,
+        recurringTransactions: enrichedRecurringTransactions,
         quarterlyPlans,
         quarterlyPlanItems,
         settings,
@@ -1045,6 +1281,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         addTransaction,
         updateTransaction,
         deleteTransaction,
+        saveRecurringTransaction,
+        deleteRecurringTransaction,
+        toggleRecurringStatus,
+        triggerRecurringExecution,
         saveTransactionType,
         deleteTransactionType,
         saveCategory,
