@@ -23,6 +23,7 @@ import {
   RefreshCw,
   AlertTriangle,
   Copy,
+  Play,
   Check,
   ArrowRight,
   CalendarClock,
@@ -55,7 +56,7 @@ export interface MasterDataViewProps {
 }
 
 export function MasterDataView({ initialTab }: MasterDataViewProps = {}) {
-  const { isSuperAdmin } = useAuth();
+  const { currentUser, isSuperAdmin } = useAuth();
   const {
     transactionTypes,
     categories,
@@ -63,6 +64,7 @@ export function MasterDataView({ initialTab }: MasterDataViewProps = {}) {
     accounts,
     flowParties,
     recurringTransactions,
+    triggerRecurringExecution,
     settings,
     appUsers,
     privacyMode,
@@ -80,6 +82,7 @@ export function MasterDataView({ initialTab }: MasterDataViewProps = {}) {
     saveAppUser,
     toggleUserStatus,
     resetUserPassword,
+    deleteAppUser,
     isSupabaseConnected,
     dbSyncError,
     refetchAll,
@@ -103,9 +106,33 @@ export function MasterDataView({ initialTab }: MasterDataViewProps = {}) {
     });
   };
 
+  // State untuk kontrol CTA Otomasi Transaksi di header
+  const [otomasiSqlGuideOpen, setOtomasiSqlGuideOpen] = useState(false);
+  const [otomasiAddTrigger, setOtomasiAddTrigger] = useState(0);
+  const [isExecutingOtomasi, setIsExecutingOtomasi] = useState(false);
+
+  const handleExecuteRecurring = async () => {
+    setIsExecutingOtomasi(true);
+    const res = await triggerRecurringExecution();
+    setIsExecutingOtomasi(false);
+    if (res.success) {
+      if (res.count > 0) {
+        showToast('success', 'Eksekusi Berhasil', `${res.count} transaksi baru otomatis berhasil dibuat!`);
+      } else {
+        showToast('info', 'Pemeriksaan Selesai', 'Tidak ada jadwal transaksi yang jatuh tempo pada jam sekarang.');
+      }
+    } else {
+      showToast('error', 'Gagal eksekusi jadwal', res.error);
+    }
+  };
+
   // Generic modal state
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+
+  // Modal konfirmasi hapus akun
+  const [userToDelete, setUserToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [isDeletingUser, setIsDeletingUser] = useState(false);
 
   // Form states
   // 1. Transaction Type
@@ -398,6 +425,26 @@ export function MasterDataView({ initialTab }: MasterDataViewProps = {}) {
     }
   };
 
+  // Konfirmasi hapus user
+  const handleConfirmDeleteUser = async () => {
+    if (!userToDelete) return;
+    if (currentUser?.id === userToDelete.id) {
+      showToast('error', 'Peringatan', 'Anda tidak dapat menghapus akun yang sedang Anda gunakan saat ini.');
+      setUserToDelete(null);
+      return;
+    }
+
+    setIsDeletingUser(true);
+    const res = await deleteAppUser(userToDelete.id);
+    setIsDeletingUser(false);
+    if (res.success) {
+      showToast('success', 'Akun Pengguna Berhasil Dihapus', `Akun ${userToDelete.name} telah berhasil dihapus.`);
+      setUserToDelete(null);
+    } else {
+      showToast('error', 'Gagal Menghapus Akun', res.error);
+    }
+  };
+
   // Save Settings
   const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -632,7 +679,7 @@ export function MasterDataView({ initialTab }: MasterDataViewProps = {}) {
             {isSuperAdmin && activeTab !== 'settings' && activeTab !== 'integrasi' && activeTab !== 'otomasi' && (
               <button
                 onClick={handleOpenAdd}
-                className="px-4 py-2 bg-[#1E6B4F] hover:bg-[#16523c] text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-xs transition-colors shrink-0 self-start sm:self-auto"
+                className="px-4 py-2 bg-[#1E6B4F] hover:bg-[#16523c] text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-xs transition-colors shrink-0 self-start sm:self-auto cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
                 <span>
@@ -643,6 +690,64 @@ export function MasterDataView({ initialTab }: MasterDataViewProps = {}) {
                     : 'Tambah Data Baru'}
                 </span>
               </button>
+            )}
+
+            {/* CTA KHUSUS TAB OTOMASI: Icon-only dengan hover tooltip untuk Query & Cek Eksekusi, plus Tombol Tambah */}
+            {isSuperAdmin && activeTab === 'otomasi' && (
+              <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto flex-wrap">
+                {/* Icon Button: Query SQL dengan hover tooltip */}
+                <div className="relative group">
+                  <button
+                    type="button"
+                    onClick={() => setOtomasiSqlGuideOpen((prev) => !prev)}
+                    className={`p-2.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer flex items-center justify-center ${
+                      otomasiSqlGuideOpen
+                        ? 'bg-slate-800 text-white border-slate-700 shadow-inner'
+                        : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'
+                    }`}
+                    title="Query SQL Supabase"
+                    aria-label="Query SQL Supabase"
+                  >
+                    <Copy className="w-4 h-4" />
+                  </button>
+                  <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:flex flex-col items-center z-30">
+                    <span className="whitespace-nowrap px-2.5 py-1 text-[11px] font-medium text-white bg-slate-900 rounded-lg shadow-md border border-slate-700">
+                      Query SQL Supabase
+                    </span>
+                    <span className="w-2 h-2 -mt-1 rotate-45 bg-slate-900 border-r border-b border-slate-700"></span>
+                  </div>
+                </div>
+
+                {/* Icon Button: Cek & Eksekusi Sekarang dengan hover tooltip */}
+                <div className="relative group">
+                  <button
+                    type="button"
+                    onClick={handleExecuteRecurring}
+                    disabled={isExecutingOtomasi}
+                    className="p-2.5 rounded-xl text-xs font-semibold bg-emerald-50 hover:bg-emerald-100 text-[#1E6B4F] border border-emerald-200 transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center"
+                    title="Cek & Eksekusi Sekarang"
+                    aria-label="Cek & Eksekusi Sekarang"
+                  >
+                    <Play className={`w-4 h-4 fill-current ${isExecutingOtomasi ? 'animate-spin' : ''}`} />
+                  </button>
+                  <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:flex flex-col items-center z-30">
+                    <span className="whitespace-nowrap px-2.5 py-1 text-[11px] font-medium text-white bg-slate-900 rounded-lg shadow-md border border-slate-700">
+                      {isExecutingOtomasi ? 'Memeriksa...' : 'Cek & Eksekusi Sekarang'}
+                    </span>
+                    <span className="w-2 h-2 -mt-1 rotate-45 bg-slate-900 border-r border-b border-slate-700"></span>
+                  </div>
+                </div>
+
+                {/* Primary CTA: Tambah Jadwal Baru */}
+                <button
+                  type="button"
+                  onClick={() => setOtomasiAddTrigger((prev) => prev + 1)}
+                  className="px-4 py-2 bg-[#1E6B4F] hover:bg-[#16523c] text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Tambah Jadwal Baru</span>
+                </button>
+              </div>
             )}
           </div>
 
@@ -1022,12 +1127,13 @@ export function MasterDataView({ initialTab }: MasterDataViewProps = {}) {
 
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Basis Rata-rata Pengeluaran (Bulan Terakhir)
+                Basis Rata-rata Pengeluaran (Bulan Terakhir) <span className="text-rose-500">*</span>
               </label>
               <input
                 type="number"
                 min="1"
                 max="12"
+                required
                 disabled={!isSuperAdmin}
                 value={runwayBasis}
                 onChange={(e) => setRunwayBasis(e.target.value)}
@@ -1207,13 +1313,28 @@ export function MasterDataView({ initialTab }: MasterDataViewProps = {}) {
                         <button
                           onClick={() => toggleUserStatus(u.id, !u.is_active)}
                           title={u.is_active ? 'Nonaktifkan Akun' : 'Aktifkan Akun'}
-                          className={`p-1.5 rounded-lg ${
+                          className={`p-1.5 rounded-lg cursor-pointer ${
                             u.is_active
-                              ? 'text-slate-400 hover:text-rose-600'
+                              ? 'text-slate-400 hover:text-amber-600'
                               : 'text-emerald-600 hover:text-emerald-700'
                           }`}
                         >
                           {u.is_active ? <UserX className="w-3.5 h-3.5" /> : <UserCheck className="w-3.5 h-3.5" />}
+                        </button>
+
+                        {/* Hapus Akun */}
+                        <button
+                          onClick={() => {
+                            if (currentUser?.id === u.id) {
+                              showToast('warning', 'Peringatan', 'Anda tidak dapat menghapus akun yang sedang aktif digunakan.');
+                              return;
+                            }
+                            setUserToDelete({ id: u.id, name: u.full_name });
+                          }}
+                          title="Hapus Akun Pengguna"
+                          className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg cursor-pointer transition-colors"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </td>
@@ -1235,7 +1356,11 @@ export function MasterDataView({ initialTab }: MasterDataViewProps = {}) {
 
       {/* TAB 9: OTOMASI JADWAL TRANSAKSI BERULANG */}
       {activeTab === 'otomasi' && (
-        <RecurringTransactionsView />
+        <RecurringTransactionsView
+          showSqlGuide={otomasiSqlGuideOpen}
+          setShowSqlGuide={setOtomasiSqlGuideOpen}
+          addTrigger={otomasiAddTrigger}
+        />
       )}
         </div>
       </div>
@@ -1268,7 +1393,7 @@ export function MasterDataView({ initialTab }: MasterDataViewProps = {}) {
                 <>
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Nama Tipe
+                      Nama Tipe <span className="text-rose-500">*</span>
                     </label>
                     <input
                       type="text"
@@ -1281,7 +1406,7 @@ export function MasterDataView({ initialTab }: MasterDataViewProps = {}) {
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Kind (Logika Arus)
+                      Kind (Logika Arus) <span className="text-rose-500">*</span>
                     </label>
                     <select
                       value={typeKind}
@@ -1312,7 +1437,7 @@ export function MasterDataView({ initialTab }: MasterDataViewProps = {}) {
                 <>
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Nama Kategori
+                      Nama Kategori <span className="text-rose-500">*</span>
                     </label>
                     <input
                       type="text"
@@ -1325,7 +1450,7 @@ export function MasterDataView({ initialTab }: MasterDataViewProps = {}) {
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Tipe Transaksi Terkait
+                      Tipe Transaksi Terkait <span className="text-rose-500">*</span>
                     </label>
                     <select
                       required
@@ -1348,7 +1473,7 @@ export function MasterDataView({ initialTab }: MasterDataViewProps = {}) {
                 <>
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Nama Sub Kategori
+                      Nama Sub Kategori <span className="text-rose-500">*</span>
                     </label>
                     <input
                       type="text"
@@ -1361,7 +1486,7 @@ export function MasterDataView({ initialTab }: MasterDataViewProps = {}) {
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Kategori Induk
+                      Kategori Induk <span className="text-rose-500">*</span>
                     </label>
                     <select
                       required
@@ -1401,7 +1526,7 @@ export function MasterDataView({ initialTab }: MasterDataViewProps = {}) {
                 <>
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Nama Rekening
+                      Nama Rekening <span className="text-rose-500">*</span>
                     </label>
                     <input
                       type="text"
@@ -1415,7 +1540,7 @@ export function MasterDataView({ initialTab }: MasterDataViewProps = {}) {
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="block text-xs font-semibold text-slate-700 mb-1">
-                        Grup Rekening
+                        Grup Rekening <span className="text-rose-500">*</span>
                       </label>
                       <select
                         value={accGroup}
@@ -1478,7 +1603,7 @@ export function MasterDataView({ initialTab }: MasterDataViewProps = {}) {
 
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Saldo Awal (Rp)
+                      Saldo Awal (Rp) <span className="text-rose-500">*</span>
                     </label>
                     <div className="relative">
                       <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-xs font-bold text-slate-400">
@@ -1513,7 +1638,7 @@ export function MasterDataView({ initialTab }: MasterDataViewProps = {}) {
                 <>
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Nama Pihak
+                      Nama Pihak <span className="text-rose-500">*</span>
                     </label>
                     <input
                       type="text"
@@ -1526,7 +1651,7 @@ export function MasterDataView({ initialTab }: MasterDataViewProps = {}) {
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Scope Aliran
+                      Scope Aliran <span className="text-rose-500">*</span>
                     </label>
                     <select
                       value={partyScope}
@@ -1545,7 +1670,7 @@ export function MasterDataView({ initialTab }: MasterDataViewProps = {}) {
                 <>
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Nama Lengkap User
+                      Nama Lengkap User <span className="text-rose-500">*</span>
                     </label>
                     <input
                       type="text"
@@ -1558,7 +1683,7 @@ export function MasterDataView({ initialTab }: MasterDataViewProps = {}) {
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Email Login
+                      Email Login <span className="text-rose-500">*</span>
                     </label>
                     <input
                       type="email"
@@ -1573,7 +1698,7 @@ export function MasterDataView({ initialTab }: MasterDataViewProps = {}) {
                   {!editingId && (
                     <div>
                       <label className="block text-xs font-semibold text-slate-700 mb-1">
-                        Password Awal (Min. 6 Karakter)
+                        Password Awal (Min. 6 Karakter) <span className="text-rose-500">*</span>
                       </label>
                       <input
                         type="password"
@@ -1588,7 +1713,7 @@ export function MasterDataView({ initialTab }: MasterDataViewProps = {}) {
 
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Role Akses
+                      Role Akses <span className="text-rose-500">*</span>
                     </label>
                     <select
                       value={userRole}
@@ -1672,7 +1797,7 @@ export function MasterDataView({ initialTab }: MasterDataViewProps = {}) {
             <form onSubmit={handleResetPasswordSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Password Baru (Min. 6 Karakter)
+                  Password Baru (Min. 6 Karakter) <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="password"
@@ -1700,6 +1825,42 @@ export function MasterDataView({ initialTab }: MasterDataViewProps = {}) {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL KONFIRMASI HAPUS AKUN PENGGUNA */}
+      {userToDelete && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-5 sm:p-6 shadow-xl border border-slate-100 text-center animate-in fade-in zoom-in-95 duration-150">
+            <div className="w-12 h-12 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto mb-3.5">
+              <Trash2 className="w-6 h-6 stroke-[2.2]" />
+            </div>
+            <h3 className="text-base font-bold text-slate-900 mb-1">
+              Hapus Akun Pengguna
+            </h3>
+            <p className="text-xs text-slate-600 leading-relaxed mb-5">
+              Apakah Anda yakin ingin menghapus akun pengguna <strong className="text-slate-800">{userToDelete.name}</strong> secara permanen? Akun ini tidak akan dapat login lagi ke sistem.
+            </p>
+            <div className="grid grid-cols-2 gap-2.5">
+              <button
+                type="button"
+                disabled={isDeletingUser}
+                onClick={() => setUserToDelete(null)}
+                className="w-full py-2.5 px-4 rounded-xl border border-slate-200 text-slate-700 font-semibold text-xs hover:bg-slate-50 transition-all cursor-pointer disabled:opacity-50"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingUser}
+                onClick={handleConfirmDeleteUser}
+                className="w-full py-2.5 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs shadow-sm shadow-rose-600/20 transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>{isDeletingUser ? 'Menghapus...' : 'Ya, Hapus Akun'}</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

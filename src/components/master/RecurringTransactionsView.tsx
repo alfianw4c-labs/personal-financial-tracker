@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   CalendarClock,
   Plus,
@@ -9,6 +9,7 @@ import {
   XCircle,
   Copy,
   Check,
+  X,
   AlertCircle,
   Clock,
   Calendar,
@@ -25,7 +26,17 @@ import { formatRupiah, formatNumberOnly, parseNumberFromInput, formatDateID } fr
 import { RECURRING_TRANSACTIONS_MIGRATION_SQL } from '../../lib/recurringSql';
 import type { RecurringTransaction, RecurringFrequency, TxKind } from '../../types';
 
-export function RecurringTransactionsView() {
+export interface RecurringTransactionsViewProps {
+  showSqlGuide?: boolean;
+  setShowSqlGuide?: React.Dispatch<React.SetStateAction<boolean>>;
+  addTrigger?: number;
+}
+
+export function RecurringTransactionsView({
+  showSqlGuide: externalShowSqlGuide,
+  setShowSqlGuide: externalSetShowSqlGuide,
+  addTrigger,
+}: RecurringTransactionsViewProps = {}) {
   const { isSuperAdmin } = useAuth();
   const {
     recurringTransactions,
@@ -65,10 +76,20 @@ export function RecurringTransactionsView() {
   const [description, setDescription] = useState<string>('');
   const [isActive, setIsActive] = useState<boolean>(true);
 
-  // Trigger manual execution loading
+  // Trigger manual execution loading & SQL guide state
   const [isExecuting, setIsExecuting] = useState(false);
   const [copiedSql, setCopiedSql] = useState(false);
-  const [showSqlGuide, setShowSqlGuide] = useState(false);
+  const [internalShowSqlGuide, setInternalShowSqlGuide] = useState(false);
+
+  const showSqlGuide = externalShowSqlGuide !== undefined ? externalShowSqlGuide : internalShowSqlGuide;
+  const setShowSqlGuide = externalSetShowSqlGuide || setInternalShowSqlGuide;
+
+  // Dengarkan trigger buka modal dari parent CTA header
+  useEffect(() => {
+    if (addTrigger && addTrigger > 0) {
+      handleOpenAdd();
+    }
+  }, [addTrigger]);
 
   // Helper active type
   const activeType = transactionTypes.find((t) => t.id === selectedTypeId) || transactionTypes.find((t) => t.kind === 'expense') || transactionTypes[0];
@@ -232,58 +253,6 @@ export function RecurringTransactionsView() {
 
   return (
     <div className="space-y-4">
-      {/* HEADER CARD & ACTION BUTTONS */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="p-2 rounded-xl bg-[#1E6B4F]/10 text-[#1E6B4F]">
-              <CalendarClock className="w-5 h-5" />
-            </span>
-            <div>
-              <h2 className="text-base font-bold text-slate-900 tracking-tight">
-                Otomasi Jadwal Transaksi
-              </h2>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Buat transaksi otomatis setiap hari atau tiap tanggal tertentu (misal tgl 20 untuk biaya admin bank), dengan nominal pasti atau susulan.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 flex-wrap shrink-0">
-          <button
-            type="button"
-            onClick={() => setShowSqlGuide(!showSqlGuide)}
-            className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer"
-          >
-            <Copy className="w-3.5 h-3.5 text-slate-500" />
-            <span>Query SQL Supabase</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleExecuteNow()}
-            disabled={isExecuting}
-            className="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100/80 text-[#1E6B4F] border border-emerald-200 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
-            title="Periksa dan buat transaksi yang jatuh tempo sekarang"
-          >
-            <Play className={`w-3.5 h-3.5 fill-current ${isExecuting ? 'animate-spin' : ''}`} />
-            <span>{isExecuting ? 'Memeriksa...' : 'Cek & Eksekusi Sekarang'}</span>
-          </button>
-
-          {isSuperAdmin && (
-            <button
-              type="button"
-              onClick={handleOpenAdd}
-              className="px-4 py-2 bg-[#1E6B4F] hover:bg-[#16523c] text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Tambah Jadwal Baru</span>
-            </button>
-          )}
-        </div>
-      </div>
-
       {/* SQL QUERY BANNER / MODAL DROPDOWN */}
       {showSqlGuide && (
         <div className="bg-slate-900 text-slate-100 rounded-2xl p-4 sm:p-5 shadow-lg border border-slate-800 space-y-3">
@@ -294,13 +263,25 @@ export function RecurringTransactionsView() {
                 Query SQL untuk Supabase Dashboard (1-Klik Copy)
               </h3>
             </div>
-            <button
-              onClick={handleCopySql}
-              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all self-start sm:self-auto cursor-pointer shadow-xs"
-            >
-              {copiedSql ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-              <span>{copiedSql ? 'Tersalin ke Clipboard!' : 'Salin Query SQL Lengkap'}</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleCopySql}
+                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all self-start sm:self-auto cursor-pointer shadow-xs"
+              >
+                {copiedSql ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                <span>{copiedSql ? 'Tersalin ke Clipboard!' : 'Salin Query SQL Lengkap'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowSqlGuide(false)}
+                className="p-1.5 text-slate-400 hover:text-white rounded-lg transition-colors cursor-pointer"
+                title="Tutup Panduan SQL"
+                aria-label="Tutup"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
           </div>
 
           <p className="text-[11px] sm:text-xs text-slate-300 leading-relaxed">
@@ -345,7 +326,6 @@ export function RecurringTransactionsView() {
                   <th className="py-3 px-4">Nama & Deskripsi</th>
                   <th className="py-3 px-4">Jadwal & Jam</th>
                   <th className="py-3 px-4">Tipe & Kategori</th>
-                  <th className="py-3 px-4">Arus Akun / Pihak</th>
                   <th className="py-3 px-4 text-right">Nominal</th>
                   <th className="py-3 px-4 text-center">Status</th>
                   <th className="py-3 px-4 text-center">Terakhir Dibuat</th>
@@ -410,19 +390,6 @@ export function RecurringTransactionsView() {
                         </div>
                       </td>
 
-                      {/* Arus Akun / Pihak */}
-                      <td className="py-3 px-4">
-                        <div className="flex items-center gap-1 text-slate-700">
-                          <span className="font-semibold text-slate-800 truncate max-w-[120px]">
-                            {rec.source_name || '-'}
-                          </span>
-                          <ArrowRight className="w-3 h-3 text-slate-400 shrink-0" />
-                          <span className="font-semibold text-slate-800 truncate max-w-[120px]">
-                            {rec.destination_name || '-'}
-                          </span>
-                        </div>
-                      </td>
-
                       {/* Nominal */}
                       <td className="py-3 px-4 text-right">
                         {rec.amount !== null && rec.amount !== undefined && rec.amount > 0 ? (
@@ -430,7 +397,8 @@ export function RecurringTransactionsView() {
                             {formatRupiah(rec.amount, privacyMode)}
                           </span>
                         ) : (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200/80">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
                             Nominal Susulan
                           </span>
                         )}
@@ -560,7 +528,7 @@ export function RecurringTransactionsView() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Frekuensi Otomasi
+                      Frekuensi Otomasi <span className="text-rose-500">*</span>
                     </label>
                     <select
                       value={frequency}
@@ -575,7 +543,7 @@ export function RecurringTransactionsView() {
                   {frequency === 'monthly_date' ? (
                     <div>
                       <label className="block text-xs font-semibold text-slate-700 mb-1">
-                        Pilihan Tanggal (1 - 31)
+                        Pilihan Tanggal (1 - 31) <span className="text-rose-500">*</span>
                       </label>
                       <div className="relative">
                         <select
@@ -605,14 +573,19 @@ export function RecurringTransactionsView() {
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Jam Pembuatan (WIB)
+                    Jam Pembuatan (WIB) <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="time"
                     required
                     value={executionTime}
+                    onClick={(e) => {
+                      try {
+                        (e.currentTarget as any).showPicker?.();
+                      } catch {}
+                    }}
                     onChange={(e) => setExecutionTime(e.target.value)}
-                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#1E6B4F]"
+                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#1E6B4F] cursor-pointer"
                   />
                   <p className="text-[11px] text-slate-400 mt-1">
                     Waktu pembuatan transaksi otomatis pada hari yang dijadwalkan (Format 24 jam).

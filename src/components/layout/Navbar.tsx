@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   LayoutDashboard,
   ReceiptText,
@@ -13,6 +13,8 @@ import {
   ChevronRight,
   PanelLeftClose,
   PanelLeftOpen,
+  UserCog,
+  ChevronsUpDown,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
@@ -33,10 +35,33 @@ export function Navbar({
   collapsed = false,
   onToggleCollapse,
 }: NavbarProps) {
-  const { currentUser, logout, isSuperAdmin, changePassword } = useAuth();
+  const { currentUser, logout, isSuperAdmin, changePassword, updateProfile } = useAuth();
   const { privacyMode, setPrivacyMode, exceededLimitCountCurrentMonth } = useData();
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const userMenuRef = React.useRef<HTMLDivElement>(null);
+
+  // Close desktop user menu on click outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setShowUserMenu(false);
+      }
+    }
+    if (showUserMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showUserMenu]);
+
+  // Form edit nama akun
+  const [profileName, setProfileName] = useState('');
+  const [profileSuccess, setProfileSuccess] = useState('');
+  const [profileError, setProfileError] = useState('');
+  const [savingProfile, setSavingProfile] = useState(false);
 
   // Form ganti password
   const [oldPassword, setOldPassword] = useState('');
@@ -48,6 +73,37 @@ export function Navbar({
 
   const supabaseConfig = getSupabaseConfig();
   const isConnectedToSupabase = !!supabaseConfig;
+
+  const handleOpenEditAkun = () => {
+    setProfileName(currentUser?.full_name || '');
+    setProfileError('');
+    setProfileSuccess('');
+    setPassError('');
+    setPassSuccess('');
+    setOldPassword('');
+    setNewPassword('');
+    setConfirmPassword('');
+    setShowProfileModal(true);
+  };
+
+  const handleProfileNameSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setProfileError('');
+    setProfileSuccess('');
+    if (!profileName.trim()) {
+      setProfileError('Nama lengkap wajib diisi.');
+      return;
+    }
+    setSavingProfile(true);
+    const res = await updateProfile(profileName.trim());
+    setSavingProfile(false);
+    if (res.success) {
+      setProfileSuccess('Nama profil berhasil diperbarui.');
+      setTimeout(() => setProfileSuccess(''), 2500);
+    } else {
+      setProfileError(res.error || 'Gagal memperbarui profil.');
+    }
+  };
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -253,54 +309,98 @@ export function Navbar({
               )}
             </button>
 
-            {/* User Profile Card */}
+            {/* User Profile Card (Desktop: Klik untuk pilihan Edit Akun & Keluar) */}
             {currentUser && (
-              collapsed ? (
-                <div className="flex flex-col items-center gap-2 pt-1">
-                  <button
-                    onClick={() => setShowProfileModal(true)}
-                    className="w-9 h-9 rounded-full bg-[#1E6B4F] text-white flex items-center justify-center font-bold text-xs shadow-xs hover:opacity-90 transition-opacity"
-                    title={`${currentUser.full_name} (${currentUser.role})`}
+              <div className="relative w-full" ref={userMenuRef}>
+                {/* Popover Pilihan Menu Akun (Desktop) */}
+                {showUserMenu && (
+                  <div
+                    className={`absolute bottom-full mb-2 bg-white rounded-2xl border border-slate-200 shadow-xl p-1.5 z-50 animate-in fade-in slide-in-from-bottom-2 duration-150 ${
+                      collapsed ? 'left-0 w-48' : 'left-0 right-0'
+                    }`}
                   >
-                    {currentUser.full_name?.charAt(0).toUpperCase() || 'U'}
-                  </button>
-                  <button
-                    onClick={() => setShowLogoutConfirm(true)}
-                    title="Keluar Akun"
-                    className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                  >
-                    <LogOut className="w-4 h-4" />
-                  </button>
-                </div>
-              ) : (
-                <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between gap-2">
-                  <button
-                    onClick={() => setShowProfileModal(true)}
-                    className="flex items-center gap-2.5 min-w-0 text-left hover:opacity-80 transition-opacity"
-                    title="Klik untuk lihat profil dan ubah kata sandi"
-                  >
-                    <div className="w-8 h-8 rounded-full bg-[#1E6B4F] text-white flex items-center justify-center font-bold text-xs shrink-0">
-                      {currentUser.full_name?.charAt(0).toUpperCase() || 'U'}
-                    </div>
-                    <div className="min-w-0">
-                      <span className="text-xs font-bold text-slate-900 block truncate">
+                    <div className="px-3 py-2 border-b border-slate-100 mb-1">
+                      <p className="text-xs font-bold text-slate-900 truncate">
                         {currentUser.full_name}
-                      </span>
-                      <span className="text-[10px] text-slate-500 capitalize block truncate">
+                      </p>
+                      <p className="text-[10px] text-slate-500 font-mono truncate">
+                        {currentUser.email}
+                      </p>
+                      <span className="inline-block mt-1 text-[9px] font-bold uppercase tracking-wider text-[#1E6B4F] bg-[#1E6B4F]/10 px-1.5 py-0.5 rounded">
                         {currentUser.role === 'superadmin' ? 'Superadmin' : 'User Keluarga'}
                       </span>
                     </div>
-                  </button>
 
+                    {/* Pilihan 1: Edit Akun */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowUserMenu(false);
+                        handleOpenEditAkun();
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:text-[#1E6B4F] hover:bg-emerald-50/80 transition-colors cursor-pointer text-left"
+                    >
+                      <UserCog className="w-4 h-4 text-[#1E6B4F]" />
+                      <span>Edit Akun</span>
+                    </button>
+
+                    {/* Pilihan 2: Keluar */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowUserMenu(false);
+                        setShowLogoutConfirm(true);
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer text-left"
+                    >
+                      <LogOut className="w-4 h-4 text-rose-600" />
+                      <span>Keluar</span>
+                    </button>
+                  </div>
+                )}
+
+                {collapsed ? (
+                  <div className="flex flex-col items-center gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setShowUserMenu((prev) => !prev)}
+                      className="w-9 h-9 rounded-full bg-[#1E6B4F] text-white flex items-center justify-center font-bold text-xs shadow-xs hover:opacity-90 transition-opacity cursor-pointer ring-2 ring-transparent hover:ring-[#1E6B4F]/30"
+                      title={`${currentUser.full_name} - Klik untuk Edit Akun atau Keluar`}
+                    >
+                      {currentUser.full_name?.charAt(0).toUpperCase() || 'U'}
+                    </button>
+                  </div>
+                ) : (
                   <button
-                    onClick={() => setShowLogoutConfirm(true)}
-                    title="Keluar"
-                    className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors shrink-0"
+                    type="button"
+                    onClick={() => setShowUserMenu((prev) => !prev)}
+                    className={`w-full p-2.5 rounded-xl border flex items-center justify-between gap-2 text-left transition-all cursor-pointer group select-none ${
+                      showUserMenu
+                        ? 'bg-slate-100 border-[#1E6B4F]/40 shadow-xs ring-2 ring-[#1E6B4F]/10'
+                        : 'bg-slate-50 hover:bg-slate-100/90 border-slate-200/80'
+                    }`}
+                    title="Klik untuk pilihan edit akun dan keluar"
                   >
-                    <LogOut className="w-4 h-4" />
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-8 h-8 rounded-full bg-[#1E6B4F] text-white flex items-center justify-center font-bold text-xs shrink-0 group-hover:scale-105 transition-transform">
+                        {currentUser.full_name?.charAt(0).toUpperCase() || 'U'}
+                      </div>
+                      <div className="min-w-0">
+                        <span className="text-xs font-bold text-slate-900 block truncate group-hover:text-[#1E6B4F] transition-colors">
+                          {currentUser.full_name}
+                        </span>
+                        <span className="text-[10px] text-slate-500 capitalize block truncate">
+                          {currentUser.role === 'superadmin' ? 'Superadmin' : 'User Keluarga'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="p-1 rounded-lg text-slate-400 group-hover:text-slate-600 shrink-0">
+                      <ChevronsUpDown className="w-3.5 h-3.5" />
+                    </div>
                   </button>
-                </div>
-              )
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -345,8 +445,9 @@ export function Navbar({
           {currentUser && (
             <>
               <button
-                onClick={() => setShowProfileModal(true)}
-                className="w-7 h-7 rounded-full bg-[#1E6B4F] text-white flex items-center justify-center font-bold text-xs shadow-xs"
+                onClick={handleOpenEditAkun}
+                className="w-7 h-7 rounded-full bg-[#1E6B4F] text-white flex items-center justify-center font-bold text-xs shadow-xs cursor-pointer hover:opacity-90"
+                title={`${currentUser.full_name} - Edit Akun`}
               >
                 {currentUser.full_name?.charAt(0).toUpperCase() || 'U'}
               </button>
@@ -354,7 +455,7 @@ export function Navbar({
               <button
                 onClick={() => setShowLogoutConfirm(true)}
                 title="Keluar"
-                className="p-2 text-slate-400 hover:text-rose-600 rounded-lg transition-colors"
+                className="p-2 text-slate-400 hover:text-rose-600 rounded-lg transition-colors cursor-pointer"
               >
                 <LogOut className="w-4 h-4" />
               </button>
@@ -400,60 +501,105 @@ export function Navbar({
       </div>
 
       {/* ======================================================== */}
-      {/* 4. MODAL PROFIL & GANTI KATA SANDI                       */}
+      {/* 4. MODAL EDIT AKUN & KATA SANDI                          */}
       {/* ======================================================== */}
       {showProfileModal && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-100">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+          <div className="bg-white rounded-2xl max-w-md w-full p-5 sm:p-6 shadow-xl border border-slate-100 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3.5 border-b border-slate-100">
               <div className="flex items-center gap-2">
-                <ShieldCheck className="w-5 h-5 text-[#1E6B4F]" />
-                <h3 className="font-semibold text-slate-900 text-base">Profil & Kata Sandi</h3>
+                <UserCog className="w-5 h-5 text-[#1E6B4F]" />
+                <h3 className="font-bold text-slate-900 text-base">Edit Akun & Kata Sandi</h3>
               </div>
               <button
                 onClick={() => setShowProfileModal(false)}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg"
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="py-4 space-y-4">
-              <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-100 text-xs space-y-1.5">
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Nama:</span>
-                  <span className="font-medium text-slate-800">{currentUser?.full_name}</span>
+            <div className="py-4 space-y-5">
+              {/* Form 1: Ubah Nama Akun */}
+              <form onSubmit={handleProfileNameSubmit} className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <ShieldCheck className="w-4 h-4 text-[#1E6B4F]" />
+                    Informasi Profil
+                  </h4>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#1E6B4F] bg-[#1E6B4F]/10 px-2 py-0.5 rounded-full">
+                    {currentUser?.role === 'superadmin' ? 'Superadmin' : 'User Keluarga'}
+                  </span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Email:</span>
-                  <span className="font-medium text-slate-800">{currentUser?.email}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Role:</span>
-                  <span className="font-semibold text-[#1E6B4F] capitalize">{currentUser?.role}</span>
-                </div>
-              </div>
 
-              <form onSubmit={handlePasswordSubmit} className="space-y-3">
-                <h4 className="text-xs font-semibold text-slate-700 flex items-center gap-1.5 pt-2">
-                  <KeyRound className="w-3.5 h-3.5 text-[#1E6B4F]" />
-                  Ganti Password
+                {profileError && (
+                  <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs">
+                    {profileError}
+                  </div>
+                )}
+                {profileSuccess && (
+                  <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs">
+                    {profileSuccess}
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Nama Lengkap <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      required
+                      value={profileName}
+                      onChange={(e) => setProfileName(e.target.value)}
+                      placeholder="Nama lengkap Anda"
+                      className="flex-1 px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1E6B4F]"
+                    />
+                    <button
+                      type="submit"
+                      disabled={savingProfile || !profileName.trim() || profileName === currentUser?.full_name}
+                      className="px-3.5 py-2 text-xs font-bold text-white bg-[#1E6B4F] hover:bg-[#16523c] rounded-xl shadow-xs transition-colors disabled:opacity-50 cursor-pointer"
+                    >
+                      {savingProfile ? '...' : 'Simpan'}
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-medium text-slate-500 mb-1">
+                    Email Terdaftar (Tidak dapat diubah)
+                  </label>
+                  <input
+                    type="email"
+                    disabled
+                    value={currentUser?.email || ''}
+                    className="w-full px-3 py-2 text-xs border border-slate-200 bg-slate-50 rounded-xl text-slate-500 cursor-not-allowed font-mono"
+                  />
+                </div>
+              </form>
+
+              {/* Form 2: Ganti Password */}
+              <form onSubmit={handlePasswordSubmit} className="space-y-3 pt-3 border-t border-slate-100">
+                <h4 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                  <KeyRound className="w-4 h-4 text-[#1E6B4F]" />
+                  Ganti Kata Sandi
                 </h4>
 
                 {passError && (
-                  <div className="p-2.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs">
+                  <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs">
                     {passError}
                   </div>
                 )}
                 {passSuccess && (
-                  <div className="p-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs">
+                  <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs">
                     {passSuccess}
                   </div>
                 )}
 
                 <div>
-                  <label className="block text-[11px] font-medium text-slate-600 mb-1">
-                    Password Lama
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Password Lama <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="password"
@@ -461,13 +607,13 @@ export function Navbar({
                     value={oldPassword}
                     onChange={(e) => setOldPassword(e.target.value)}
                     placeholder="Masukkan password saat ini"
-                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E6B4F]"
+                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1E6B4F]"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-medium text-slate-600 mb-1">
-                    Password Baru
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Password Baru (Min. 6 Karakter) <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="password"
@@ -475,13 +621,13 @@ export function Navbar({
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     placeholder="Minimal 6 karakter"
-                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E6B4F]"
+                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1E6B4F]"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-medium text-slate-600 mb-1">
-                    Konfirmasi Password Baru
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Konfirmasi Password Baru <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="password"
@@ -489,7 +635,7 @@ export function Navbar({
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="Ulangi password baru"
-                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E6B4F]"
+                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1E6B4F]"
                   />
                 </div>
 
@@ -497,16 +643,16 @@ export function Navbar({
                   <button
                     type="button"
                     onClick={() => setShowProfileModal(false)}
-                    className="px-3.5 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg"
+                    className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl cursor-pointer"
                   >
                     Tutup
                   </button>
                   <button
                     type="submit"
                     disabled={savingPass}
-                    className="px-4 py-2 text-xs font-semibold text-white bg-[#1E6B4F] hover:bg-[#16523c] rounded-lg shadow-xs transition-colors disabled:opacity-50"
+                    className="px-4 py-2 text-xs font-bold text-white bg-[#1E6B4F] hover:bg-[#16523c] rounded-xl shadow-xs transition-colors disabled:opacity-50 cursor-pointer"
                   >
-                    {savingPass ? 'Menyimpan...' : 'Simpan Password'}
+                    {savingPass ? 'Menyimpan...' : 'Perbarui Password'}
                   </button>
                 </div>
               </form>

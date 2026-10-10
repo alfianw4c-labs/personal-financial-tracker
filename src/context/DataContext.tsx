@@ -105,6 +105,7 @@ interface DataContextType {
   saveAppUser: (user: { id?: string; full_name: string; email: string; password?: string; role: 'superadmin' | 'user'; is_active: boolean }) => Promise<{ success: boolean; error?: string }>;
   toggleUserStatus: (id: string, active: boolean) => Promise<{ success: boolean; error?: string }>;
   resetUserPassword: (id: string, newPasswordPlain: string) => Promise<{ success: boolean; error?: string }>;
+  deleteAppUser: (id: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -1254,6 +1255,38 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
+  const deleteAppUser = async (id: string) => {
+    if (!isSuperAdmin) {
+      return { success: false, error: 'Hanya Superadmin yang memiliki hak akses menghapus akun.' };
+    }
+    if (currentUser?.id === id) {
+      return {
+        success: false,
+        error: 'Anda tidak dapat menghapus akun yang sedang Anda gunakan saat ini.',
+      };
+    }
+
+    const client = getSupabaseClient();
+    if (client) {
+      try {
+        const { error } = await client.from('app_users').delete().eq('id', id);
+        if (error) return { success: false, error: error.message };
+        await refetchAll();
+        return { success: true };
+      } catch (err: any) {
+        return { success: false, error: err.message };
+      }
+    }
+
+    // Demo store fallback
+    const storedDemoUsers = localStorage.getItem('daily_cashflow_demo_users');
+    let pool: AppUser[] = storedDemoUsers ? JSON.parse(storedDemoUsers) : INITIAL_USERS;
+    pool = pool.filter((u) => u.id !== id);
+    localStorage.setItem('daily_cashflow_demo_users', JSON.stringify(pool));
+    setAppUsers(pool);
+    return { success: true };
+  };
+
   return (
     <DataContext.Provider
       value={{
@@ -1304,6 +1337,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         saveAppUser,
         toggleUserStatus,
         resetUserPassword,
+        deleteAppUser,
       }}
     >
       {children}

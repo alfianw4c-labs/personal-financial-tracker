@@ -311,9 +311,6 @@ export function PlanningView() {
               Perencanaan Anggaran
             </h1>
           </div>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Atur batas wajar pengeluaran bulanan dan pantau realisasi transaksi aktual keluarga per kuartal.
-          </p>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
@@ -330,13 +327,24 @@ export function PlanningView() {
             ))}
           </select>
 
-          <button
-            onClick={handleCopyPreviousQuarter}
-            className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 flex items-center gap-1.5 transition-colors shadow-2xs"
-          >
-            <Copy className="w-3.5 h-3.5 text-slate-500" />
-            <span>Salin dari Kuartal Sebelumnya</span>
-          </button>
+          {/* Tombol Salin dari Kuartal Sebelumnya (Icon Only + Tooltip) */}
+          <div className="relative group">
+            <button
+              type="button"
+              onClick={handleCopyPreviousQuarter}
+              className="p-2.5 text-xs font-semibold rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 flex items-center justify-center transition-colors shadow-2xs cursor-pointer"
+              title="Salin dari Kuartal Sebelumnya"
+              aria-label="Salin dari Kuartal Sebelumnya"
+            >
+              <Copy className="w-4 h-4 text-slate-500" />
+            </button>
+            <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:flex flex-col items-center z-30">
+              <span className="whitespace-nowrap px-2.5 py-1 text-[11px] font-medium text-white bg-slate-900 rounded-lg shadow-md border border-slate-700">
+                Salin dari Kuartal Sebelumnya
+              </span>
+              <span className="w-2 h-2 -mt-1 rotate-45 bg-slate-900 border-r border-b border-slate-700"></span>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -354,7 +362,7 @@ export function PlanningView() {
                   : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
               }`}
             >
-              {QUARTER_LABELS[q]}
+              {`Q${q}`}
             </button>
           ))}
         </div>
@@ -379,7 +387,7 @@ export function PlanningView() {
               <form onSubmit={handleSavePlanHeader} className="space-y-3 pt-1">
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                    Judul Rencana Kuartal
+                    Judul Rencana Kuartal <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -776,34 +784,8 @@ export function PlanningView() {
                       {/* Baris Accordion: Rincian Transaksi */}
                       {isExpanded && (
                         <tr className="bg-slate-50/70 border-b border-slate-200">
-                          <td colSpan={7} className="p-3 sm:p-4">
-                            <div className="bg-white rounded-xl border border-slate-200/80 shadow-xs p-4 space-y-3">
-                              {/* Header Accordion */}
-                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-slate-100">
-                                <div className="flex items-center gap-2">
-                                  <div className="p-1.5 rounded-lg bg-emerald-50 text-[#1E6B4F]">
-                                    <ReceiptText className="w-4 h-4" />
-                                  </div>
-                                  <div>
-                                    <h4 className="font-bold text-xs text-slate-900">
-                                      Mutasi Transaksi: {item.sub_category_name}
-                                    </h4>
-                                    <p className="text-[11px] text-slate-400">
-                                      Periode {INDO_MONTHS[monitoringMonth - 1]} {selectedYear}
-                                    </p>
-                                  </div>
-                                </div>
-
-                                <div className="flex items-center gap-2 text-xs">
-                                  <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 font-semibold text-[11px]">
-                                    {subTxs.length} Transaksi
-                                  </span>
-                                  <span className="font-extrabold text-slate-900 bg-rose-50 text-rose-800 border border-rose-200 px-2.5 py-0.5 rounded-full text-[11px]">
-                                    Total: {formatRupiah(item.spent, privacyMode)}
-                                  </span>
-                                </div>
-                              </div>
-
+                          <td colSpan={7} className="p-2.5 sm:p-3.5">
+                            <div className="bg-white rounded-xl border border-slate-200/80 shadow-xs p-3 sm:p-4">
                               {/* Tabel / List Transaksi */}
                               {subTxs.length > 0 ? (
                                 <div className="overflow-x-auto">
@@ -813,7 +795,7 @@ export function PlanningView() {
                                         <th className="py-2 px-3" style={{ width: '120px' }}>
                                           Tanggal
                                         </th>
-                                        <th className="py-2 px-3" style={{ width: '220px' }}>
+                                        <th className="py-2 px-3" style={{ minWidth: '320px', width: '380px' }}>
                                           Sumber Saldo &rarr; Tujuan
                                         </th>
                                         <th className="py-2 px-3 text-right" style={{ width: '140px' }}>
@@ -830,13 +812,13 @@ export function PlanningView() {
                                           <td className="py-2.5 px-3 font-medium text-slate-700 whitespace-nowrap">
                                             {formatDateID(tx.tx_date)}
                                           </td>
-                                          <td className="py-2.5 px-3">
-                                            <div className="flex items-center gap-1.5 text-slate-800">
-                                              <span className="font-semibold text-slate-900">
+                                          <td className="py-2.5 px-3" style={{ minWidth: '320px' }}>
+                                            <div className="flex items-center gap-2 text-slate-800">
+                                              <span className="font-semibold text-slate-900 whitespace-nowrap">
                                                 {tx.source_name || 'Kas/Bank'}
                                               </span>
-                                              <ArrowRight className="w-3 h-3 text-slate-400 shrink-0" />
-                                              <span className="text-slate-600">
+                                              <ArrowRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                              <span className="text-slate-600 whitespace-nowrap">
                                                 {tx.destination_name || 'Merchant'}
                                               </span>
                                             </div>
@@ -901,7 +883,7 @@ export function PlanningView() {
             <form onSubmit={handleSaveItem} className="py-4 space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Sub Kategori Pengeluaran
+                  Sub Kategori Pengeluaran <span className="text-rose-500">*</span>
                 </label>
                 <select
                   required
@@ -919,7 +901,7 @@ export function PlanningView() {
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Batas Limit Bulanan (Rp)
+                  Batas Limit Bulanan (Rp) <span className="text-rose-500">*</span>
                 </label>
                 <div className="relative">
                   <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-xs font-bold text-slate-400">

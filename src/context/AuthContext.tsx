@@ -18,6 +18,7 @@ interface AuthContextType {
   logout: () => void;
   isSuperAdmin: boolean;
   changePassword: (oldPassword: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
+  updateProfile: (fullName: string) => Promise<{ success: boolean; error?: string }>;
   setDirectSession: (user: AuthSessionUser) => void;
 }
 
@@ -376,6 +377,46 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { success: false, error: 'User tidak ditemukan.' };
   };
 
+  const updateProfile = async (fullName: string): Promise<{ success: boolean; error?: string }> => {
+    if (!currentUser) return { success: false, error: 'Belum login.' };
+    const cleanName = fullName.trim();
+    if (!cleanName) return { success: false, error: 'Nama lengkap tidak boleh kosong.' };
+
+    const client = getSupabaseClient();
+    if (client) {
+      try {
+        const { error } = await client
+          .from('app_users')
+          .update({ full_name: cleanName })
+          .eq('id', currentUser.id);
+
+        if (error) {
+          return { success: false, error: error.message };
+        }
+      } catch (err: any) {
+        return { success: false, error: err.message };
+      }
+    }
+
+    // Update demo fallback storage if exists
+    try {
+      const storedDemoUsers = localStorage.getItem('daily_cashflow_demo_users');
+      if (storedDemoUsers) {
+        let pool: AppUser[] = JSON.parse(storedDemoUsers);
+        pool = pool.map((u) => (u.id === currentUser.id ? { ...u, full_name: cleanName } : u));
+        localStorage.setItem('daily_cashflow_demo_users', JSON.stringify(pool));
+      }
+    } catch {}
+
+    const updatedUser: AuthSessionUser = {
+      ...currentUser,
+      full_name: cleanName,
+    };
+    setCurrentUser(updatedUser);
+    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(updatedUser));
+    return { success: true };
+  };
+
   const isSuperAdmin = currentUser?.role === 'superadmin';
 
   return (
@@ -387,6 +428,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         logout,
         isSuperAdmin,
         changePassword,
+        updateProfile,
         setDirectSession,
       }}
     >

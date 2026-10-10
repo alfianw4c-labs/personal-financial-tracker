@@ -245,7 +245,7 @@ export function LoginView() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                Alamat Email
+                Alamat Email <span className="text-rose-500">*</span>
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
@@ -265,7 +265,7 @@ export function LoginView() {
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="block text-xs font-semibold text-slate-700">
-                  Kata Sandi
+                  Kata Sandi <span className="text-rose-500">*</span>
                 </label>
               </div>
               <div className="relative">
@@ -389,7 +389,7 @@ export function LoginView() {
 
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Project URL Supabase
+                      Project URL Supabase <span className="text-rose-500">*</span>
                     </label>
                     <input
                       type="text"
@@ -405,7 +405,7 @@ export function LoginView() {
 
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Anon Public Key
+                      Anon Public Key <span className="text-rose-500">*</span>
                     </label>
                     <textarea
                       rows={3}

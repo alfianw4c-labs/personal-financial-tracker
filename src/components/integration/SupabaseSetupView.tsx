@@ -319,11 +319,12 @@ export function SupabaseSetupView({ onBackToApp }: SupabaseSetupViewProps) {
           <div className="space-y-4">
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Project URL
+                Project URL <span className="text-rose-500">*</span>
               </label>
               <div className="relative">
                 <input
                   type="text"
+                  required
                   disabled={isEnvLocked}
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
@@ -336,7 +337,7 @@ export function SupabaseSetupView({ onBackToApp }: SupabaseSetupViewProps) {
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label className="block text-xs font-semibold text-slate-700">
-                  Anon / Publishable Key
+                  Anon / Publishable Key <span className="text-rose-500">*</span>
                 </label>
                 {!isEnvLocked && (
                   <button
@@ -350,6 +351,7 @@ export function SupabaseSetupView({ onBackToApp }: SupabaseSetupViewProps) {
               </div>
               <input
                 type={showAnonKey ? 'text' : 'password'}
+                required
                 disabled={isEnvLocked}
                 value={anonKey}
                 onChange={(e) => setAnonKey(e.target.value)}
@@ -489,10 +491,11 @@ export function SupabaseSetupView({ onBackToApp }: SupabaseSetupViewProps) {
             <form onSubmit={handleRunAutoMigration} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Database Connection String (URI PostgreSQL)
+                  Database Connection String (URI PostgreSQL) <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="password"
+                  required
                   value={connectionString}
                   onChange={(e) => setConnectionString(e.target.value)}
                   placeholder="postgresql://postgres:[PASSWORD]@db.xxxx.supabase.co:5432/postgres"
@@ -604,7 +607,7 @@ export function SupabaseSetupView({ onBackToApp }: SupabaseSetupViewProps) {
           <form onSubmit={handleCreateSuperadmin} className="space-y-4">
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Nama Lengkap Superadmin
+                Nama Lengkap Superadmin <span className="text-rose-500">*</span>
               </label>
               <input
                 type="text"
@@ -618,7 +621,7 @@ export function SupabaseSetupView({ onBackToApp }: SupabaseSetupViewProps) {
 
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Alamat Email Login
+                Alamat Email Login <span className="text-rose-500">*</span>
               </label>
               <input
                 type="email"
@@ -632,7 +635,7 @@ export function SupabaseSetupView({ onBackToApp }: SupabaseSetupViewProps) {
 
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Kata Sandi Baru (Min. 6 Karakter)
+                Kata Sandi Baru (Min. 6 Karakter) <span className="text-rose-500">*</span>
               </label>
               <input
                 type="password"
